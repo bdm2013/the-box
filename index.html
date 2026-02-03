@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Song Picker</title>
+  
+  <!-- Critical for mobile scaling -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="color-scheme" content="dark light" />
+  
+  <!-- Main Stylesheet (Always loads) -->
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Mobile Layout (Loads for ANY screen narrower than 768px) -->
+  <!-- This replaces the JavaScript User Agent check -->
+  <link rel="stylesheet" href="iphone.css" media="(max-width: 768px)" />
+
+</head>
+<body>
+  <div id="app" class="app-root">
+    <!-- Main Screen -->
+    <section id="main-screen" class="screen active">
+      <header class="app-header">
+        <h1>Song Picker</h1>
+      </header>
+
+      <!-- Genre Grid -->
+      <div class="buttons-grid two-cols-four-rows">
+        <button type="button" id="random-genre-btn" class="genre-btn random-btn tall" data-genre="Random">Random</button>
+        <button type="button" class="genre-btn tall genre-pop" data-genre="Pop">Pop</button>
+        <button type="button" class="genre-btn tall genre-country" data-genre="Country">Country</button>
+        <button type="button" class="genre-btn tall genre-rock" data-genre="Rock/Alt">Rock/Alt</button>
+        <button type="button" class="genre-btn tall genre-rnb" data-genre="R&B/HipHop">R&amp;B/HipHop</button>
+        <button type="button" class="genre-btn tall genre-other" data-genre="Other">Other</button>
+        <button type="button" class="genre-btn tall genre-tv" data-genre="Tv/Movie/Kids">Tv/Movie/Kids</button>
+        <button type="button" class="genre-btn tall genre-metal" data-genre="Metal/Hard Rock">Metal / Hard Rock</button>
+      </div>
+
+      <!-- Selected Song Box -->
+      <div class="center-wrap">
+        <div id="result" class="result-card" aria-live="polite">
+          <div class="meta">
+            <div id="nowPlayingText" class="title">No song selected yet</div>
+            <div class="subtitle">
+              <span id="nowPlayingGenrePill" class="badge genre-pill" hidden>Genre</span>
+            </div>
+          </div>
+          <button type="button" id="copySongBtn" class="copy-btn" title="Copy" aria-label="Copy">Copy</button>
+        </div>
+      </div>
+
+      <!-- Recent Songs Bar -->
+      <div id="recentBar">
+        <h3>Last 4 Songs</h3>
+        <div id="recentList"></div>
+      </div>
+
+      <!-- Bottom Actions -->
+      <div class="bottom-actions fixed-bottom" role="toolbar" aria-label="Main actions">
+        <div class="left-actions">
+          <button type="button" id="import-csv-btn" class="circle-icon circle-green" title="Import CSV" aria-label="Import CSV">
+            <span class="icon-label" aria-hidden="true">⇩</span>
+          </button>
+          <button type="button" id="export-csv-btn" class="circle-icon circle-green" title="Export CSV" aria-label="Export CSV">
+            <span class="icon-label" aria-hidden="true">⇧</span>
+          </button>
+          <button type="button" id="bind-csv-btn" class="circle-icon circle-green bind-btn bind-not-bound" title="Bind CSV" aria-label="Bind CSV">
+            <span class="icon-label" aria-hidden="true">🔗</span>
+          </button>
+        </div>
+        <div class="right-actions">
+          <button type="button" id="add-song-nav" class="circle-icon circle-green" title="Add Song" aria-label="Add Song">
+            <span class="icon-label" aria-hidden="true">＋</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Add Song / Current Songs Screen -->
+    <section id="add-screen" class="screen">
+      <header class="app-header">
+        <h2>Add Song</h2>
+      </header>
+
+      <div class="form-card">
+        <form id="song-form" novalidate>
+          <div class="form-row">
+            <label for="artist">Artist</label>
+            <input type="text" id="artist" name="artist" required />
+          </div>
+
+          <div class="form-row">
+            <label for="title">Song Title</label>
+            <input type="text" id="title" name="title" required />
+          </div>
+
+          <div class="form-row">
+            <label for="year">Year</label>
+            <input type="number" id="year" name="year" min="1900" max="2100" />
+          </div>
+
+          <div class="form-row">
+            <label for="genre">Genre</label>
+            <select id="genre" name="genre" required>
+              <option value="">Select a genre</option>
+              <option>Pop</option>
+              <option>Country</option>
+              <option>Rock/Alt</option>
+              <option>R&B/HipHop</option>
+              <option>Other</option>
+              <option>Tv/Movie/Kids</option>
+              <option>Metal/Hard Rock</option>
+            </select>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="primary">Save</button>
+            <button type="button" id="cancel-add" class="secondary">Back</button>
+            <button type="button" id="go-archive" class="secondary">Archive</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="list-toolbar">
+        <div class="toolbar-left">
+          <button type="button" id="back-current" class="icon-btn">Back</button>
+          <button type="button" id="nav-archive" class="icon-btn">Archive</button>
+        </div>
+      </div>
+
+      <div class="list-preview">
+        <div class="list-header">
+          <h3>Current Songs</h3>
+          <div id="current-counts" class="counts"></div>
+        </div>
+        <ul id="song-list"></ul>
+
+        <div class="list-bottom-actions">
+          <button type="button" id="archive-all-current" class="icon-btn">Archive All Current Songs</button>
+        </div>
+
+        <div id="importReport"></div>
+      </div>
+    </section>
+
+    <!-- Archive Screen -->
+    <section id="archive-screen" class="screen">
+      <header class="app-header">
+        <h2>Archived Songs</h2>
+      </header>
+
+      <div class="list-toolbar">
+        <div class="toolbar-left">
+          <button type="button" id="back-archive" class="icon-btn">Back</button>
+          <button type="button" id="nav-current" class="icon-btn">Current</button>
+        </div>
+        <div class="toolbar-right">
+          <button type="button" id="delete-all-archive" class="icon-btn danger">Delete All</button>
+          <button type="button" id="unarchive-all" class="icon-btn">Unarchive All</button>
+        </div>
+      </div>
+
+      <div class="list-preview">
+        <div class="list-header">
+          <h3>Archive</h3>
+          <div id="archive-counts" class="counts"></div>
+        </div>
+        <ul id="archive-list"></ul>
+
+        <div class="list-bottom-actions">
+          <button type="button" id="delete-all-archive-view" class="icon-btn danger">Delete All</button>
+          <button type="button" id="unarchive-all-bottom" class="icon-btn">Unarchive All</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Hidden File Input -->
+    <input id="import-csv-file" type="file" accept=".csv,text/csv" hidden />
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

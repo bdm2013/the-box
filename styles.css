@@ -1,0 +1,339 @@
+/* 1. Root Variables and Theme */
+:root {
+  --bg: #0f172a;
+  --card: #111827;
+  --text: #e5e7eb;
+  --muted: #94a3b8;
+  --accent: #22c55e;
+  --accent2: #3b82f6;
+  --danger: #ef4444;
+  --shadow: 0 8px 24px rgba(0,0,0,0.25);
+
+  /* Genre colors */
+  --pop: #ef4444;
+  --country: #10b981;
+  --rock: #3b82f6;
+  --rnb: #a855f7;
+  --other: #f59e0b;
+  --tv: #f472b6;
+  --metal: #6b7280;
+
+  /* Bind status colors */
+  --bind-orange-bg: #1e293b;
+  --bind-orange-border: #f59e0b;
+  --bind-orange-text: #fbbf24;
+
+  --bind-green-bg: #0f2f1d;
+  --bind-green-border: #16a34a;
+  --bind-green-text: #34d399;
+
+  /* Icon greens */
+  --icon-green-bg: #16a34a;
+  --icon-green-text: #062b16;
+}
+
+/* 2. Global Resets and Body */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  background: linear-gradient(180deg, #0b1221, var(--bg));
+  color: var(--text);
+}
+
+/* App root fills viewport and stacks screens vertically */
+.app-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Screens take available vertical space */
+.screen {
+  display: none;
+  padding: 16px 16px 120px; /* slightly more bottom padding for larger icons */
+  flex: 1 1 auto;
+}
+.screen.active { display: block; }
+
+/* 3. Headers */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 12px;
+  border-bottom: 1px solid #1f2937;
+}
+.app-header h1, .app-header h2 { margin: 0; font-weight: 700; letter-spacing: 0.5px; }
+
+/* 4. Genre Grid (words retained) */
+.buttons-grid.two-cols-four-rows {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0 24px;
+}
+@media (max-width: 520px) { .buttons-grid.two-cols-four-rows { grid-template-columns: 1fr; } }
+
+.genre-btn.tall { min-height: 96px; }
+.genre-btn, .random-btn {
+  border: none;
+  color: white;
+  padding: 14px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform 0.08s ease, filter 0.2s ease;
+  font-size: 16px; /* word labels */
+  line-height: 1.2;
+}
+.genre-btn:hover, .random-btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
+.genre-pop { background: var(--pop); }
+.genre-country { background: var(--country); }
+.genre-rock { background: var(--rock); }
+.genre-rnb { background: var(--rnb); }
+.genre-other { background: var(--other); }
+.genre-tv { background: var(--tv); }
+.genre-metal { background: var(--metal); }
+.random-btn { background: #0b2a47; color: #cfe3ff; }
+
+/* 5. Centered Result Card */
+.center-wrap { display: flex; justify-content: center; margin: 16px 0 24px; }
+.result-card {
+  width: 50%;
+  min-width: 320px;
+  max-width: 640px;
+  background: var(--card);
+  border: 1px solid #1f2937;
+  border-radius: 10px;
+  padding: 14px 16px;
+  min-height: 64px;
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  overflow: visible;
+  position: relative;
+}
+@media (max-width: 640px) { .result-card { width: 90%; } }
+
+.result-card .meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0; /* allow ellipsis */
+}
+.result-card .title { font-weight: 700; }
+.result-card .subtitle { color: var(--muted); font-size: 0.95rem; }
+
+#nowPlayingText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap; /* keep title on one line with ellipsis */
+}
+
+/* 6. Copy Button */
+.copy-btn {
+  display: inline-flex !important;  /* ensure it renders */
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;                   /* don't shrink away */
+  min-width: 88px;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  z-index: 2;                       /* stay above background layers */
+}
+
+/* Optional: icon-style copy button matching green circles */
+.copy-btn.circle {
+  width: 66px;     /* match your enlarged circle icons */
+  height: 66px;
+  min-width: 66px;
+  min-height: 66px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--icon-green-bg, #16a34a);
+  color: #fff;
+  border: none;
+  font-size: 30px;
+  line-height: 1;
+}
+
+/* On very small screens, allow wrapping so the button doesn’t get squeezed */
+@media (max-width: 420px) {
+  .result-card { flex-wrap: wrap; }
+  .result-card .meta { flex-basis: 100%; }
+  .copy-btn { margin-left: auto; } /* keep it on the right when wrapping */
+}
+
+/* 7. Genre Pills */
+.badge { background: #0b2a47; color: #cfe3ff; padding: 2px 8px; border-radius: 999px; font-size: 0.8rem; }
+.badge.genre-pill { display: inline-block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.genre-pill.genre-pop { background: var(--pop); color: #fff; }
+.genre-pill.genre-country { background: var(--country); color: #041e12; }
+.genre-pill.genre-rock { background: var(--rock); color: #04121e; }
+.genre-pill.genre-rnb { background: var(--rnb); color: #fff; }
+.genre-pill.genre-other { background: var(--other); color: #2b1a00; }
+.genre-pill.genre-tv { background: var(--tv); color: #2b0f19; }
+.genre-pill.genre-metal { background: var(--metal); color: #fff; }
+
+/* 8. Form Card and inputs */
+.form-card {
+  max-width: 800px;
+  margin: 0 auto 16px auto;
+  background: var(--card);
+  border: 1px solid #1f2937;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+form { width: 100%; }
+.form-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+input, select {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #334155;
+  background: #0b1221;
+  color: var(--text);
+  font-size: 1rem;
+}
+input:focus, select:focus { outline: 2px solid var(--accent2); }
+
+.form-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.primary { background: var(--accent2); color: white; border: none; padding: 12px 16px; border-radius: 10px; cursor: pointer; }
+.secondary { background: transparent; color: var(--text); border: 1px solid #334155; padding: 12px 16px; border-radius: 10px; cursor: pointer; }
+
+/* 9. Lists and toolbar */
+.list-toolbar {
+  max-width: 960px;
+  margin: 0 auto 8px auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.toolbar-left, .toolbar-right { display: flex; gap: 8px; }
+.icon-btn {
+  background: transparent;
+  border: 1px solid #334155;
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.icon-btn.danger { border-color: #7f1d1d; color: #fecaca; }
+
+.list-preview {
+  max-width: 960px;
+  margin: 8px auto 16px auto;
+  background: var(--card);
+  border: 1px solid #1f2937;
+  padding: 12px;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+.list-header { display: flex; justify-content: space-between; align-items: baseline; margin: 8px 0 12px 0; }
+.list-header h3 { margin: 0; }
+.counts { display: flex; gap: 8px; flex-wrap: wrap; font-size: 0.9rem; color: var(--muted); }
+.count-badge { background: #0b2a47; color: #cfe3ff; padding: 2px 8px; border-radius: 999px; font-size: 0.8rem; }
+
+#song-list, #archive-list { list-style: none; padding: 0; margin: 0; }
+#song-list li, #archive-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #1f2937;
+}
+.item-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+.item-meta { display: flex; align-items: center; gap: 8px; }
+.actions { display: flex; gap: 8px; }
+
+/* 10. Bottom Actions */
+.bottom-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+.bottom-actions .left-actions { display: flex; gap: 16px; }
+.bottom-actions .right-actions { display: flex; gap: 16px; }
+
+/* Fixed to bottom with backdrop */
+.fixed-bottom {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 20px calc(env(safe-area-inset-bottom) + 16px); /* larger padding for bigger icons */
+  background: linear-gradient(180deg, transparent, rgba(17, 24, 39, 0.85));
+  backdrop-filter: blur(6px);
+  border-top: 1px solid #1f2937;
+  z-index: 10;
+}
+
+/* 11. Circle icons: simple green circles with symbol — 50% larger */
+.circle-icon {
+  width: 66px;   /* was 44px */
+  height: 66px;  /* was 44px */
+  border-radius: 50%;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform 0.08s ease, filter 0.2s ease;
+}
+.circle-icon:hover { transform: translateY(-1px); filter: brightness(1.05); }
+.circle-green { background: var(--icon-green-bg); color: #fff; }
+
+.icon-label {
+  font-size: 30px; /* was 20px */
+  font-weight: 700;
+  line-height: 1;
+}
+.enrichment-box {
+  max-width: 640px;
+  width: 50%;
+  min-width: 320px;
+  margin: 8px auto 16px auto;
+  background: var(--card);
+  border: 1px solid #1f2937;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 12px;
+}
+@media (max-width: 640px) { .enrichment-box { width: 90%; } }
+.enrichment .row { margin: 6px 0; }
+.enrichment .lyrics {
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.9rem;
+  background: #0b1221;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 8px;
+  max-height: 240px;
+  overflow: auto;
+}
+
+/* Bind CSV circle state variations */
+.bind-btn.circle-icon { border: 2px solid transparent; }
+.bind-btn.bind-not-bound.circle-icon { box-shadow: 0 0 0 2px var(--bind-orange-border) inset; }
+.bind-btn.bind-bound.circle-icon { box-shadow: 0 0 0 2px var(--bind-green-border) inset; }
+
+/* Preserve non-icon bind styles for other screens if needed */
+.bind-btn { border: 2px dashed var(--bind-orange-border); background: var(--bind-orange-bg); color: var(--bind-orange-text); font-weight: 700; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+.bind-btn:hover { filter: brightness(1.05); }
+.bind-btn.bind-bound { border-color: var(--bind-green-border); background: var(--bind-green-bg); color: var(--bind-green-text); }
+.bind-btn.bind-not-bound { border-color: var(--bind-orange-border); background: var(--bind-orange-bg); color: var(--bind-orange-text); }

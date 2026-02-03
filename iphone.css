@@ -1,0 +1,133 @@
+/* iphone.css - Compressed layout for single-screen view */
+
+/* 1. Force the main screen to take exactly the phone screen height (no scrolling) */
+body, html {
+  height: 100%;
+  overflow: hidden; /* Prevent global scroll */
+}
+
+#app {
+  height: 100dvh; /* Dynamic Viewport Height handles Safari URL bar */
+  display: flex;
+  flex-direction: column;
+}
+
+#main-screen.active {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  padding: 0 16px; /* Remove bottom padding, handled by flex spacing */
+  overflow: hidden;
+}
+
+/* 2. Header: Make it compact */
+.app-header {
+  flex: 0 0 auto; /* Don't grow or shrink */
+  padding: 12px 0 8px 0;
+  border-bottom: none; /* Cleaner look for mobile */
+}
+.app-header h1 {
+  font-size: 1.25rem;
+}
+
+/* 3. Genre Grid: The key to fitting everything */
+/* This makes the grid take up all available empty space */
+.buttons-grid.two-cols-four-rows {
+  flex: 1 1 auto; 
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(4, 1fr); /* Force 4 equal rows based on available height */
+  gap: 8px; /* Tighter gaps */
+  margin: 4px 0 12px 0;
+  min-height: 0; /* Critical for Flexbox nested scrolling/fitting */
+}
+
+/* Remove fixed height so buttons squash to fit the screen */
+.genre-btn.tall {
+  min-height: 0; 
+  height: 100%;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.95rem; /* Slightly smaller text */
+  white-space: normal; /* Allow text wrapping */
+}
+
+/* 4. Result Card: Compact */
+.center-wrap {
+  flex: 0 0 auto;
+  margin: 0 0 12px 0;
+  width: 100%;
+}
+.result-card {
+  width: 100%;
+  max-width: 100%;
+  min-height: 54px;
+  padding: 8px 12px;
+}
+.result-card .title {
+  font-size: 1rem;
+}
+.copy-btn {
+  min-width: 60px;
+  min-height: 32px;
+  font-size: 0.85rem;
+}
+
+/* 5. Recent Bar: Compact and tucked above bottom bar */
+#recentBar {
+  flex: 0 0 auto;
+  margin-bottom: 90px; /* Leave space for the floating bottom bar */
+  max-height: 15vh; /* Don't let recent history eat the whole screen */
+  overflow-y: auto;
+}
+#recentBar h3 {
+  font-size: 0.85rem;
+  margin: 0 0 4px 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+#recentList .item-row {
+  padding: 4px 0;
+  font-size: 0.8rem;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+/* 6. Bottom Actions: Floating Overlay */
+.bottom-actions.fixed-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px 24px calc(env(safe-area-inset-bottom) + 12px);
+  background: rgba(11, 18, 33, 0.95); /* High opacity background */
+  backdrop-filter: blur(10px);
+  border-top: 1px solid #334155;
+  z-index: 50;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Adjust circle size slightly for mobile proportions */
+.circle-icon {
+  width: 54px; 
+  height: 54px;
+}
+.icon-label {
+  font-size: 26px;
+}
+
+/* 7. Hide "Import Report" on main screen mobile to save space */
+#mainImportReport {
+  display: none;
+}
+
+/* 8. Tweaks for the Add/Archive screens (which scroll normally) */
+#add-screen, #archive-screen {
+  height: 100dvh;
+  overflow-y: auto;
+  padding-bottom: 40px;
+}
