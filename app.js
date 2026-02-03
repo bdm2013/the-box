@@ -140,7 +140,7 @@ async function pickAndArchiveForGenre(genre) {
     return;
   }
   const song = randomItem(pool);
-  renderResultWithDelay(song, 5000);
+  renderResultWithDelay(song, 0000);
 
   // Direct user action: open Apple Music
   try { 
