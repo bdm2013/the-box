@@ -7,7 +7,7 @@ body, html {
 }
 
 #app {
-  height: 100dvh; /* Dynamic Viewport Height handles Safari URL bar */
+  height: 80dvh; /* Dynamic Viewport Height handles Safari URL bar */
   display: flex;
   flex-direction: column;
 }
