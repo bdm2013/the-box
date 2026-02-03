@@ -45,7 +45,7 @@ body, html {
 /* Remove fixed height so buttons squash to fit the screen */
 .genre-btn.tall {
   min-height: 0; 
-  height: 100%;
+  height: 60%;
   padding: 4px;
   display: flex;
   align-items: center;
