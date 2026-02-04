@@ -29,6 +29,27 @@ body, html {
 .app-header h1 {
   font-size: 1.25rem;
 }
+.header-with-toggle{
+  position: relative;
+  justify-content: center; /* keep title centered */
+}
+
+.header-with-toggle .provider-toggle{
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.header-with-toggle #providerSelect{
+  height: 32px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  border: 1px solid #334155;
+  background: rgba(11, 18, 33, 0.9);
+  color: var(--text);
+  font-size: 0.85rem;
+}
 
 /* 3. Genre Grid: The key to fitting everything */
 /* This makes the grid take up all available empty space */
@@ -140,6 +161,7 @@ body, html {
   padding-bottom: 40px;
 
 }
+
 
 
 
