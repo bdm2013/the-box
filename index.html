@@ -17,7 +17,15 @@
       <header class="app-header">
         <h1>Song Picker</h1>
       </header>
-
+<div class="provider-toggle">
+  <label class="toggle">
+    <span>Apple Music</span>
+    <select id="providerSelect">
+      <option value="apple" selected>Apple Music</option>
+      <option value="ytm">YouTube Music</option>
+    </select>
+  </label>
+</div>
       <!-- Genre Grid -->
       <div class="buttons-grid two-cols-four-rows">
         <button type="button" id="random-genre-btn" class="genre-btn random-btn tall" data-genre="Random">Random</button>
@@ -188,4 +196,5 @@
   <!-- app.js is now a module because it includes Firebase ESM imports -->
   <script type="module" src="app.js"></script>
 </body>
+
 </html>
