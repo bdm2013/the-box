@@ -331,6 +331,29 @@ bindCsvBtn?.addEventListener("click", async (e) => {
       notify("Binding failed.");
     }
   }
+async function importCsvFromRepo() {
+  try {
+    notify("Loading CSV from repository…");
+
+    const response = await fetch('./songs.csv?v=' + Date.now(), {
+      cache: 'no-store'
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const csvText = await response.text();
+
+    // Reuse your existing parser
+    handleCsvText(csvText);
+
+    notify("Imported CSV from repository");
+  } catch (err) {
+    console.error(err);
+    notify("Failed to import CSV from repository");
+  }
+}
 });
 
 
@@ -1442,19 +1465,6 @@ function mergeImportedSongs(imported) {
       added++;
     }
   }
-async function importCsvFromRepo() {
-  try {
-    const response = await fetch('./songs.csv', { cache: 'no-store' });
-    if (!response.ok) throw new Error('Failed to fetch CSV');
-
-    const text = await response.text();
-    handleCsvText(text); // reuse your existing CSV parser
-    notify('Imported CSV from repository');
-  } catch (err) {
-    notify('Failed to import CSV from repo');
-    console.error(err);
-  }
-}
 
   saveSongs(songs);
   return added;
