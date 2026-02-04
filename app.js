@@ -26,11 +26,10 @@ const LAST_IMPORT_META_KEY = "songPicker.lastImportMeta";
 const CSV_DELIM = "@";
 const RECENT_MAX = 4;
 
-/* ---------- Firebase (Manual) ---------- */
-/**
- * Paste values from Firebase Console -> Project settings -> Your apps -> Web app
- * This uses Firestore as a "single master doc" store (manual pull/push).
- */
+/* ---------- Firebase (Manual) ----------
+   This uses Firestore as a "single master doc" store (manual pull/push).
+   IMPORTANT: Firestore docs have a ~1 MiB limit. If you may exceed it, we should chunk.
+*/
 const FIREBASE_ENABLED = true;
 
 const firebaseConfig = {
@@ -42,8 +41,8 @@ const firebaseConfig = {
   appId: "PASTE_APP_ID"
 };
 
-// Firestore document to store the master CSV in: "collection/docId"
-const FIREBASE_DOC_PATH = "songs/state"; // e.g. collection "songPicker", doc "state"
+// Firestore document path to store the master CSV: "collection/docId"
+const FIREBASE_DOC_PATH = "songs/state";
 
 /* Firebase SDK imports (ESM) */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
@@ -147,6 +146,76 @@ const importReportTarget = (() => {
   leftActions.appendChild(el);
   return el;
 })();
+/* ---------- Core helpers that were missing ---------- */
+
+function validateSong({ artist, title, year, genre }) {
+  const errs = [];
+  if (!artist) errs.push("Artist is required.");
+  if (!title) errs.push("Song title is required.");
+  if (year != null) {
+    if (!Number.isFinite(year) || year < 1900 || year > 2100) errs.push("Year must be between 1900 and 2100.");
+  }
+  if (!DISPLAY_GENRES.includes(genre)) errs.push("Genre must be selected.");
+  return errs;
+}
+
+function genreClass(genre) {
+  const key = String(genre || "").toLowerCase();
+  const simple = key.replace(/\s+/g, "");
+  if (simple.includes("pop")) return "genre-pop";
+  if (simple.includes("country")) return "genre-country";
+  if (simple.includes("rock/alt") || key === "rock" || simple.includes("alt")) return "genre-rock";
+  if (simple.includes("r&b") || simple.includes("hiphop") || simple.includes("hip-hop")) return "genre-rnb";
+  if (simple.includes("tv") || simple.includes("movie") || simple.includes("kids")) return "genre-tv";
+  if (simple.includes("metal")) return "genre-metal";
+  return "genre-other";
+}
+
+function randomItem(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+/**
+ * Replace-import from raw text (CSV or @-delimited), overwriting songs+archive.
+ * Returns { report, routed, duplicatesInCsv } for consistent UI + meta.
+ */
+function importReplaceFromText(text) {
+  const smart = parseCsvSmart(text, []); // ignore existing list for replace
+  const { validSongs, failedLines, duplicatesInCsv, __routed } = smart;
+
+  let currentRows = [];
+  let archiveRows = [];
+
+  if (__routed === "status") {
+    const { currentRows: cr, archiveRows: ar } = parseCsvWithStatus(text);
+    currentRows = cr.map(s => normalizeSongStrings(s));
+    archiveRows = ar.map(s => normalizeSongStrings(s));
+  } else {
+    currentRows = validSongs.map(s => normalizeSongStrings(s));
+    archiveRows = [];
+  }
+
+  const { current, archived } = ensureUniqueIdsAcrossLists(currentRows, archiveRows);
+  songs = current;
+  archive = archived;
+
+  saveSongs(songs);
+  saveArchive(archive);
+
+  refreshSongList();
+  refreshArchiveList();
+
+  return {
+    routed: __routed,
+    duplicatesInCsv,
+    report: {
+      successCount: songs.length + archive.length,
+      duplicatesTotal: duplicatesInCsv,
+      failedCount: failedLines.length,
+      failedLines
+    }
+  };
+}
 
 /* ---------- Inject filter controls ---------- */
 
@@ -759,8 +828,8 @@ function applyFilters(list, scope) {
     const matchesGenre = !genre || s.genre === genre;
     const matchesQuery =
       !q ||
-      s.title.toLowerCase().includes(q) ||
-      s.artist.toLowerCase().includes(q);
+      String(s.title || "").toLowerCase().includes(q) ||
+      String(s.artist || "").toLowerCase().includes(q);
     return matchesGenre && matchesQuery;
   });
 }
@@ -950,7 +1019,7 @@ function renderRecent() {
     .join("");
 }
 
-/* ---------- HTML escape ---------- */
+/* ---------- HTML escape + notify + download ---------- */
 
 function escapeHtml(str) {
   return String(str)
@@ -961,7 +1030,46 @@ function escapeHtml(str) {
     .replaceAll("'", "&#39;");
 }
 
-/* ---------- Normalizers ---------- */
+function notify(text) {
+  console.log(text);
+  try {
+    let toast = document.getElementById("toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.id = "toast";
+      toast.style.position = "fixed";
+      toast.style.bottom = "80px";
+      toast.style.left = "50%";
+      toast.style.transform = "translateX(-50%)";
+      toast.style.background = "#111827";
+      toast.style.color = "#e5e7eb";
+      toast.style.border = "1px solid #334155";
+      toast.style.borderRadius = "8px";
+      toast.style.padding = "8px 12px";
+      toast.style.boxShadow = "0 8px 24px rgba(0,0,0,0.25)";
+      toast.style.zIndex = "9999";
+      toast.style.fontSize = "0.9rem";
+      document.body.appendChild(toast);
+    }
+    toast.textContent = String(text || "");
+    toast.style.opacity = "1";
+    clearTimeout(notify._t);
+    notify._t = setTimeout(() => { toast.style.opacity = "0"; }, 2500);
+  } catch (_) {}
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* ---------- Normalizers + IDs ---------- */
 
 function normalizeText(s) {
   if (!s) return s;
@@ -1012,8 +1120,6 @@ function normalizeGenre(genreRaw) {
   return "Other";
 }
 
-/* ---------- IDs ---------- */
-
 function makeId() {
   if (window.crypto?.getRandomValues) {
     const buf = new Uint8Array(8);
@@ -1034,49 +1140,6 @@ function ensureUniqueIdsAcrossLists(currentRows, archiveRows) {
     });
   }
   return { current: fix(currentRows), archived: fix(archiveRows) };
-}
-
-/* ---------- Download helpers ---------- */
-
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-/* ---------- Toast ---------- */
-
-function notify(text) {
-  console.log(text);
-  try {
-    let toast = document.getElementById("toast");
-    if (!toast) {
-      toast = document.createElement("div");
-      toast.id = "toast";
-      toast.style.position = "fixed";
-      toast.style.bottom = "80px";
-      toast.style.left = "50%";
-      toast.style.transform = "translateX(-50%)";
-      toast.style.background = "#111827";
-      toast.style.color = "#e5e7eb";
-      toast.style.border = "1px solid #334155";
-      toast.style.borderRadius = "8px";
-      toast.style.padding = "8px 12px";
-      toast.style.boxShadow = "0 8px 24px rgba(0,0,0,0.25)";
-      toast.style.zIndex = "9999";
-      toast.style.fontSize = "0.9rem";
-      document.body.appendChild(toast);
-    }
-    toast.textContent = String(text || "");
-    toast.style.opacity = "1";
-    clearTimeout(notify._t);
-    notify._t = setTimeout(() => { toast.style.opacity = "0"; }, 2500);
-  } catch (_) {}
 }
 
 /* ---------- File decode ---------- */
@@ -1103,7 +1166,7 @@ function countReplacement(s) {
   return m ? m.length : 0;
 }
 
-/* ---------- CSV export ---------- */
+/* ---------- CSV export + filename ---------- */
 
 function allSongsToCsv(currentList, archiveList, opts = {}) {
   const header = ["Status", "Artist", "Title", "Year", "Genre"].join(CSV_DELIM);
@@ -1125,7 +1188,6 @@ function csvEscape(val) {
   return needsQuotes ? '"' + escaped + '"' : escaped;
 }
 
-/* iOS-safe filename: no ":" */
 function makeTimestampedFilename() {
   var d = new Date();
   var month = String(d.getMonth() + 1).padStart(2, "0");
@@ -1136,13 +1198,7 @@ function makeTimestampedFilename() {
   return "(songs " + month + "-" + day + "-" + yearShort + ") " + hours + "-" + minutes + ".csv";
 }
 
-/* ---------- CSV parsing ---------- */
-
-function detectDelimiter(text, defaultDelim) {
-  const firstLine = (text.split(/\r?\n/)[0] || "");
-  const commaCount = (firstLine.match(/,/g) || []).length;
-  const atCount = (firstLine.match(/@/g) || []).length;
-  if (commaCount > atCount) return ",";
+if (commaCount > atCount) return ",";
   if (atCount > 0) return "@";
   return defaultDelim;
 }
@@ -1151,6 +1207,7 @@ function parseCsvSmart(text, existingSongs = []) {
   const delim = detectDelimiter(text, CSV_DELIM);
   const lines = text.split(/\r?\n/);
 
+  // Remove ASCII control characters except tab (0x09)
   for (let i = 0; i < lines.length; i++) {
     lines[i] = lines[i].replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "");
   }
@@ -1165,12 +1222,16 @@ function parseCsvSmart(text, existingSongs = []) {
     };
   }
 
+  // Peek header
   const headerLine = lines[0] || "";
   const headerCols = parseDelimitedLine(headerLine, delim).map(s => s.toLowerCase());
   const hasHeader = headerCols.some(c => ["status", "artist", "title", "year", "genre"].includes(c));
 
+  // Find first non-empty data line
   let firstDataIdx = hasHeader ? 1 : 0;
-  while (firstDataIdx < lines.length && (!lines[firstDataIdx] || !lines[firstDataIdx].trim())) firstDataIdx++;
+  while (firstDataIdx < lines.length && (!lines[firstDataIdx] || !lines[firstDataIdx].trim())) {
+    firstDataIdx++;
+  }
   const firstDataLine = lines[firstDataIdx] || "";
   const firstCols = firstDataLine ? parseDelimitedLine(firstDataLine, delim) : [];
 
@@ -1178,6 +1239,7 @@ function parseCsvSmart(text, existingSongs = []) {
     firstCols.length >= 1 &&
     ["current", "archive"].includes(String(firstCols[0] || "").trim().toLowerCase());
 
+  // Route
   if ((hasHeader && headerCols.includes("status")) || looksStatusFirst) {
     const { currentRows, archiveRows, failedLines, duplicatesInCsv } = parseCsvWithStatus(lines.join("\n"));
     const validSongs = [...currentRows, ...archiveRows];
@@ -1190,6 +1252,7 @@ function parseCsvSmart(text, existingSongs = []) {
     };
   }
 
+  // Default
   const report = parseCsvWithReport(lines.join("\n"), existingSongs);
   return { ...report, __routed: "report" };
 }
@@ -1203,15 +1266,24 @@ function parseDelimitedLine(line, delim) {
     const ch = line[i];
     if (inQuotes) {
       if (ch === '"') {
-        if (line[i + 1] === '"') { cur += '"'; i++; }
-        else inQuotes = false;
+        if (line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
       } else {
         cur += ch;
       }
     } else {
-      if (ch === '"') inQuotes = true;
-      else if (ch === delim) { out.push(cur); cur = ""; }
-      else cur += ch;
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === delim) {
+        out.push(cur);
+        cur = "";
+      } else {
+        cur += ch;
+      }
     }
   }
   out.push(cur);
@@ -1235,18 +1307,13 @@ function parseCsvWithReport(text, existingSongs = []) {
   const hasHeader = headerCols.some(c => ["artist", "title", "genre", "status", "year"].includes(c));
   const startIdx = hasHeader ? 1 : 0;
 
-  // Column indexes
+  // Column indexes (default order if no header)
   let idxArtist = 0, idxTitle = 1, idxYear = 2, idxGenre = 3;
-  let idxStatus = -1;
-
   if (hasHeader) {
     idxArtist = headerCols.indexOf("artist");
     idxTitle  = headerCols.indexOf("title");
     idxYear   = headerCols.indexOf("year");
     idxGenre  = headerCols.indexOf("genre");
-    idxStatus = headerCols.indexOf("status");
-  } else {
-    idxArtist = 0; idxTitle = 1; idxYear = 2; idxGenre = 3; idxStatus = -1;
   }
 
   const validSongs = [];
@@ -1279,7 +1346,7 @@ function parseCsvWithReport(text, existingSongs = []) {
     const titleRaw  = cols[idxTitle] ?? "";
     const yearRaw   = cols[idxYear] ?? "";
     const genreRaw  = cols[idxGenre] ?? "";
-    
+
     const artist = String(artistRaw || "").trim();
     const title  = String(titleRaw || "").trim();
 
@@ -1298,6 +1365,7 @@ function parseCsvWithReport(text, existingSongs = []) {
     }
 
     const k = [artist.toLowerCase(), title.toLowerCase(), year ?? "", genre.toLowerCase()].join("|");
+
     if (seenKeys.has(k)) {
       duplicatesInCsv++;
       continue;
@@ -1315,7 +1383,6 @@ function parseCsvWithReport(text, existingSongs = []) {
   return { validSongs, failedLines, duplicatesInCsv, duplicatesVsCurrent };
 }
 
-// Binding-specific parser
 function parseCsvWithStatus(text) {
   const delim = detectDelimiter(text, CSV_DELIM);
   const lines = text.split(/\r?\n/);
@@ -1338,7 +1405,7 @@ function parseCsvWithStatus(text) {
 
   const startIdx = hasHeader ? 1 : 0;
 
-  // Indexes
+  // Indexes (default order if no header)
   let idxStatus = 0, idxArtist = 1, idxTitle = 2, idxYear = 3, idxGenre = 4;
   if (hasHeader) {
     idxStatus = headerCols.indexOf("status");
@@ -1383,7 +1450,7 @@ function parseCsvWithStatus(text) {
       .trim();
     const year = normalizeYearOptional(yearClean);
 
-    const genre  = normalizeGenre(genreRaw);
+    const genre = normalizeGenre(genreRaw);
 
     const validStatus = (status === "Current" || status === "Archive");
     const errors = validateSong({ artist, title, year, genre });
@@ -1408,6 +1475,7 @@ function parseCsvWithStatus(text) {
 }
 
 /* -------- Merge with existing list -------- */
+
 function mergeImportedSongs(imported) {
   const keyOf = function(s) {
     return [
@@ -1434,6 +1502,7 @@ function mergeImportedSongs(imported) {
 }
 
 /* -------- Import report rendering -------- */
+
 function renderImportReport(params) {
   if (!importReportTarget) return;
 
@@ -1460,6 +1529,9 @@ function renderImportReport(params) {
     '<div class="count-badge">Failed: ' + failedCount + '</div>' +
     failedBlock;
 }
+
+/* -------- Last import meta -------- */
+
 function saveLastImportMeta(meta) {
   try { localStorage.setItem(LAST_IMPORT_META_KEY, JSON.stringify(meta)); } catch {}
 }
@@ -1493,14 +1565,15 @@ function renderLastImportMeta() {
     `Last import: ${meta.mode || ""}`.trim(),
     meta.filename ? `File: ${meta.filename} (${formatBytes(meta.size)})` : "",
     whenText ? `When: ${whenText}` : "",
-    (meta.mode === "replace")
+    (meta.mode === "replace" || meta.mode === "firebase-pull")
       ? `Now: ${meta.currentCount ?? 0} current, ${meta.archiveCount ?? 0} archive`
       : (meta.addedCount != null ? `Added: ${meta.addedCount}` : ""),
-    (meta.duplicatesTotal != null ? `Duplicates: ${meta.duplicatesTotal}` : (meta.duplicatesInCsv != null ? `Duplicates in file: ${meta.duplicatesInCsv}` : "")),
+    (meta.duplicatesTotal != null
+      ? `Duplicates: ${meta.duplicatesTotal}`
+      : (meta.duplicatesInCsv != null ? `Duplicates in file: ${meta.duplicatesInCsv}` : "")),
     (meta.failedCount != null ? `Failed: ${meta.failedCount}` : "")
   ].filter(Boolean);
 
-  // Append under the existing import report without overwriting it
   const metaDivId = "lastImportMeta";
   let el = document.getElementById(metaDivId);
   if (!el) {
@@ -1515,4 +1588,10 @@ function renderLastImportMeta() {
       lines.map(escapeHtml).join("<br>") +
     "</div>";
 }
+
+/* ---------- Startup ---------- */
+
+refreshSongList();
+refreshArchiveList();
+renderRecent();
 renderLastImportMeta();
