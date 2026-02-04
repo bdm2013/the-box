@@ -22,7 +22,8 @@ const STORAGE_KEY = "songPicker.songs";
 const ARCHIVE_KEY = "songPicker.archive";
 const RECENT_KEY = "songPicker.recent";
 const LAST_IMPORT_META_KEY = "songPicker.lastImportMeta";
-
+const PROVIDER_KEY = "songPicker.provider";
+const YT_API_KEY = "AIzaSyDE4RjoYFYADsg3YVkJg6AUniegOtM7f3c";
 const CSV_DELIM = "@";
 const RECENT_MAX = 4;
 
@@ -82,7 +83,17 @@ let archive = loadArchive();
 let recent = loadRecent();
 
 let isBulkOperationInProgress = false;
-let importMode = "merge"; // "merge" | "replace"
+let importMode = "merge"; 
+let provider = loadProvider(); // "apple" | "ytm"
+
+function loadProvider() {
+  const v = localStorage.getItem(PROVIDER_KEY);
+  return (v === "ytm" || v === "apple") ? v : "apple";
+}
+function saveProvider(v) {
+  provider = v;
+  localStorage.setItem(PROVIDER_KEY, v);
+}
 
 /* ---------- Filter state ---------- */
 
@@ -103,6 +114,14 @@ const resultEl = document.getElementById("result");
 const recentListEl = document.getElementById("recentList");
 
 // Main bar buttons
+const providerSelect = document.getElementById("providerSelect");
+if (providerSelect) {
+  providerSelect.value = provider;
+  providerSelect.addEventListener("change", () => {
+    saveProvider(providerSelect.value);
+    notify(`Playback: ${provider === "ytm" ? "YouTube Music" : "Apple Music"}`);
+  });
+}
 const addSongNavBtn = document.getElementById("add-song-nav");
 const importCsvBtn = document.getElementById("import-csv-btn");
 const importReplaceBtn = document.getElementById("import-replace-btn");
@@ -281,7 +300,7 @@ async function pickAndArchiveForGenre(genre) {
   const song = randomItem(pool);
   renderResultWithDelay(song, 500);
 
-  try { PlaybackManager.playSong(song); } catch (err) { console.warn("Playback error", err); }
+ try { await PlaybackManager.playSong(song); } catch (err) { console.warn("Playback error", err); notify("Playback failed."); }
 
   pushRecent(song);
   renderRecent();
@@ -746,18 +765,50 @@ songForm?.addEventListener("submit", async (e) => {
 /* ---------- Apple Music Integration ---------- */
 
 const PlaybackManager = (() => {
-  function playSong({ title, artist }) {
+  async function playSong({ title, artist }) {
     if (!title || !artist) return;
+
+    if (provider === "ytm") {
+      notify("Searching YouTube Music...");
+      const videoId = await findYouTubeVideoId({ title, artist });
+      openYouTubeMusicByVideoId(videoId);
+      notify(`Opening "${title}" in YouTube Music...`);
+      return;
+    }
+
+    // Default: Apple Music search
     const query = encodeURIComponent(`${title} ${artist}`);
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
     const url = isIOS
       ? `music://music.apple.com/search?term=${query}`
       : `https://music.apple.com/us/search?term=${query}`;
+
     window.open(url, "_blank");
     notify(`Opening "${title}" in Apple Music...`);
   }
+
   return { playSong };
 })();
+
+async function findYouTubeVideoId({ title, artist }) {
+  const q = encodeURIComponent(`${title} ${artist}`);
+  const url =
+    "https://www.googleapis.com/youtube/v3/search" +
+    `?part=snippet&type=video&maxResults=1&q=${q}&key=${encodeURIComponent(YT_API_KEY)}`;
+
+  const res = await fetch(url);
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`YouTube API error ${res.status}: ${t || res.statusText}`);
+  }
+
+  const data = await res.json();
+  const item = data?.items?.[0];
+  const id = item?.id?.videoId;
+  if (!id) throw new Error("No YouTube results.");
+  return id;
+}
 
 /* ---------- Filtering helpers ---------- */
 
@@ -882,6 +933,12 @@ function renderResult(song, message) {
       '</div>';
     return;
   }
+   function openYouTubeMusicByVideoId(videoId) {
+  // YouTube Music can play a YouTube video ID
+  // Most reliable: open the music.youtube.com watch URL
+  const url = `https://music.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+  window.open(url, "_blank");
+}
 
   var yearText = (song.year != null) ? "(" + song.year + ")" : "";
   var text = escapeHtml(song.title) + " — " + escapeHtml(song.artist) + escapeHtml(yearText);
@@ -1599,4 +1656,5 @@ function renderLastImportMeta() {
 refreshSongList();
 refreshArchiveList();
 renderRecent();
+
 renderLastImportMeta();
