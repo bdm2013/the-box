@@ -7,7 +7,7 @@ body, html {
 }
 
 #app {
-  height: 80dvh; /* Dynamic Viewport Height handles Safari URL bar */
+  height: 100dvh; /* Dynamic Viewport Height handles Safari URL bar */
   display: flex;
   flex-direction: column;
 }
@@ -45,7 +45,7 @@ body, html {
 /* Remove fixed height so buttons squash to fit the screen */
 .genre-btn.tall {
   min-height: 0; 
-  height: 60%;
+  height: 100%;
   padding: 4px;
   display: flex;
   align-items: center;

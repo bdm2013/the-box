@@ -15,6 +15,8 @@ const ARCHIVE_KEY = "songPicker.archive";
 const RECENT_KEY = "songPicker.recent";
 const CSV_DELIM = "@";
 const RECENT_MAX = 4;
+const LAST_IMPORT_META_KEY = "songPicker.lastImportMeta";
+let importMode = "merge"; // "merge" | "replace"
 
 // State
 let songs = loadSongs();
@@ -45,7 +47,7 @@ const recentListEl = document.getElementById("recentList");
 const addSongNavBtn = document.getElementById("add-song-nav");
 const importCsvBtn = document.getElementById("import-csv-btn");
 const exportCsvBtn = document.getElementById("export-csv-btn");
-const bindCsvBtn = document.getElementById("bind-csv-btn");
+const importReplaceBtn = document.getElementById("import-replace-btn");
 const importCsvFileInput = document.getElementById("import-csv-file");
 
 // Import report target: dedicated container under main buttons (left actions)
@@ -140,7 +142,7 @@ async function pickAndArchiveForGenre(genre) {
     return;
   }
   const song = randomItem(pool);
-  renderResultWithDelay(song, 0000);
+  renderResultWithDelay(song, 5000);
 
   // Direct user action: open Apple Music
   try { 
@@ -199,6 +201,7 @@ importCsvBtn?.addEventListener("click", () => {
     alert("File input not found.");
     return;
   }
+  importMode = "merge";
   importCsvFileInput.value = "";
   importCsvFileInput.click();
 });
@@ -206,11 +209,77 @@ importCsvBtn?.addEventListener("click", () => {
 importCsvFileInput?.addEventListener("change", async (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
+
   try {
     const text = await decodeFileText(file);
+
+    if (importMode === "replace") {
+      // Replace mode: overwrite Current + Archive
+      const smart = parseCsvSmart(text, []); // ignore existingSongs
+      const { validSongs, failedLines, duplicatesInCsv, __routed } = smart;
+
+      let currentRows = [];
+      let archiveRows = [];
+
+      if (__routed === "status") {
+        const { currentRows: cr, archiveRows: ar } = parseCsvWithStatus(text);
+        currentRows = cr.map(s => normalizeSongStrings(s));
+        archiveRows = ar.map(s => normalizeSongStrings(s));
+      } else {
+        currentRows = validSongs.map(s => normalizeSongStrings(s));
+        archiveRows = [];
+      }
+
+      // Ensure unique IDs across both lists
+      const seenIds = new Set();
+      function ensureIds(list) {
+        return list.map(s => {
+          let id = s?.id ? String(s.id) : "";
+          if (!id || seenIds.has(id)) id = makeId();
+          seenIds.add(id);
+          return { ...s, id };
+        });
+      }
+
+      songs = ensureIds(currentRows);
+      archive = ensureIds(archiveRows);
+
+      saveSongs(songs);
+      saveArchive(archive);
+
+      refreshSongList();
+      refreshArchiveList();
+
+      const meta = {
+        mode: "replace",
+        filename: file.name || "",
+        size: file.size || 0,
+        importedAt: new Date().toISOString(),
+        routed: __routed,
+        currentCount: songs.length,
+        archiveCount: archive.length,
+        failedCount: failedLines.length,
+        duplicatesInCsv
+      };
+      saveLastImportMeta(meta);
+      renderLastImportMeta();
+
+      renderImportReport({
+        successCount: songs.length + archive.length,
+        duplicatesTotal: duplicatesInCsv,
+        failedCount: failedLines.length,
+        failedLines
+      });
+
+      notify(`Replaced with ${songs.length} current and ${archive.length} archived.`);
+      renderResult(null, "Imported & replaced data.");
+      showScreen("main");
+      return;
+    }
+
+    // Merge mode (your existing behavior)
     const report = parseCsvSmart(text, songs);
     const { validSongs, failedLines, duplicatesInCsv, duplicatesVsCurrent, __routed } = report;
-    console.log("CSV import routed to:", __routed);
 
     const normalized = validSongs.map(s => normalizeSongStrings(s));
     const addedCount = mergeImportedSongs(normalized);
@@ -224,138 +293,30 @@ importCsvFileInput?.addEventListener("change", async (e) => {
       failedLines
     });
 
+    const meta = {
+      mode: "merge",
+      filename: file.name || "",
+      size: file.size || 0,
+      importedAt: new Date().toISOString(),
+      routed: __routed,
+      addedCount,
+      duplicatesTotal,
+      failedCount: failedLines.length
+    };
+    saveLastImportMeta(meta);
+    renderLastImportMeta();
+
     notify(`Import: ${addedCount} added, ${duplicatesTotal} duplicates, ${failedLines.length} failed.`);
     refreshSongList();
     renderResult(null, `Imported ${addedCount} song(s).`);
     showScreen("main");
   } catch (err) {
-    renderImportReport({
-      successCount: 0,
-      duplicatesTotal: 0,
-      failedCount: 1,
-      failedLines: [`Import failed: ${err?.message || String(err)}`]
-    });
     notify("Import failed.");
   } finally {
+    importMode = "merge"; // always reset
     importCsvFileInput.value = "";
   }
 });
-
-// Bind CSV: pick a file, overwrite ALL data from it
-bindCsvBtn?.addEventListener("click", async (e) => {
-  e.stopPropagation();
-
-  if (isBulkOperationInProgress) {
-    notify("Please wait for the current operation to complete.");
-    return;
-  }
-  if (!supportsFileSystemAccess()) {
-    notify("Live file binding not supported on this device.");
-    alert("This feature is not supported on iPhone/iPad. Please use 'Import CSV' instead.");
-    return;
-  }
-
-  try {
-    const [handle] = await window.showOpenFilePicker({
-      types: [{ description: "CSV Files", accept: { "text/csv": [".csv"] } }],
-      multiple: false
-    });
-    boundFileHandle = handle;
-
-    const file = await boundFileHandle.getFile();
-    const text = await decodeFileText(file);
-
-    // Smart route: decide by header/first data field
-    const smart = parseCsvSmart(text, []); // binding overwrites all; ignore existingSongs
-    const { validSongs, failedLines, duplicatesInCsv, __routed } = smart;
-    console.log("CSV binding routed to:", __routed);
-
-    let currentRows = [];
-    let archiveRows = [];
-
-    if (__routed === "status") {
-      // Honor Status by re-parsing into separate lists
-      const { currentRows: cr, archiveRows: ar } = parseCsvWithStatus(text);
-      currentRows = cr.map(s => normalizeSongStrings(s));
-      archiveRows = ar.map(s => normalizeSongStrings(s));
-    } else {
-      // No Status column: treat all as Current
-      currentRows = validSongs.map(s => normalizeSongStrings(s));
-      archiveRows = [];
-    }
-
-    // Ensure unique IDs across both lists
-    const seenIds = new Set();
-    function ensureIds(list) {
-      return list.map(s => {
-        let id = s?.id ? String(s.id) : "";
-        if (!id || seenIds.has(id)) {
-          id = makeId();
-        }
-        seenIds.add(id);
-        return { ...s, id };
-      });
-    }
-
-    songs = ensureIds(currentRows);
-    archive = ensureIds(archiveRows);
-
-    saveSongs(songs);
-    saveArchive(archive);
-
-    refreshSongList();
-    refreshArchiveList();
-    renderResult(null, "File bound. IDs set; auto-save is OFF.");
-    showScreen("main");
-
-    renderImportReport({
-      successCount: songs.length + archive.length,
-      duplicatesTotal: duplicatesInCsv,
-      failedCount: failedLines.length,
-      failedLines
-    });
-
-    updateBindButtonState(true);
-    notify("File bound. Manual save only.");
-  } catch (err) {
-    if (err && err.name === "AbortError") {
-      notify("Binding canceled.");
-    } else {
-      console.error(err);
-      renderImportReport({
-        successCount: 0,
-        duplicatesTotal: 0,
-        failedCount: 1,
-        failedLines: ["Binding failed: " + (err && err.message ? err.message : String(err))]
-      });
-      notify("Binding failed.");
-    }
-  }
-async function importCsvFromRepo() {
-  try {
-    notify("Loading CSV from repository…");
-
-    const response = await fetch('./songs.csv?v=' + Date.now(), {
-      cache: 'no-store'
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const csvText = await response.text();
-
-    // Reuse your existing parser
-    handleCsvText(csvText);
-
-    notify("Imported CSV from repository");
-  } catch (err) {
-    console.error(err);
-    notify("Failed to import CSV from repository");
-  }
-}
-});
-
 
 // Export CSV
 exportCsvBtn?.addEventListener("click", async () => {
@@ -1145,13 +1106,14 @@ function csvEscape(val) {
 
 function makeTimestampedFilename() {
   var d = new Date();
-  var month = d.getMonth() + 1; // 1–12
-  var day = d.getDate();        // 1–31
-  var yearShort = String(d.getFullYear()).slice(-2); // YY
-  var hours = String(d.getHours()).padStart(2, "0"); // 24-hour
+  var month = String(d.getMonth() + 1).padStart(2, "0");
+  var day = String(d.getDate()).padStart(2, "0");
+  var yearShort = String(d.getFullYear()).slice(-2);
+  var hours = String(d.getHours()).padStart(2, "0");
   var minutes = String(d.getMinutes()).padStart(2, "0");
 
-  return "( songs " + month + "-" + day + "-" + yearShort + " )" + hours + ":" + minutes + ".csv";
+  // No ":" (iOS-friendly). Also remove extra spaces.
+  return "(songs " + month + "-" + day + "-" + yearShort + ") " + hours + "-" + minutes + ".csv";
 }
 
 /* ---------- Delimiter and CSV line parsing ---------- */
@@ -1465,13 +1427,9 @@ function mergeImportedSongs(imported) {
       added++;
     }
   }
-
   saveSongs(songs);
   return added;
 }
-document.getElementById('import-csv-btn')
-  .addEventListener('click', importCsvFromRepo);
-
 
 /* -------- Import report rendering -------- */
 function renderImportReport(params) {
@@ -1500,3 +1458,59 @@ function renderImportReport(params) {
     '<div class="count-badge">Failed: ' + failedCount + '</div>' +
     failedBlock;
 }
+function saveLastImportMeta(meta) {
+  try { localStorage.setItem(LAST_IMPORT_META_KEY, JSON.stringify(meta)); } catch {}
+}
+
+function loadLastImportMeta() {
+  try {
+    const raw = localStorage.getItem(LAST_IMPORT_META_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function formatBytes(n) {
+  if (!Number.isFinite(n)) return "";
+  if (n < 1024) return n + " B";
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+  return (n / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+function renderLastImportMeta() {
+  if (!importReportTarget) return;
+
+  const meta = loadLastImportMeta();
+  if (!meta) return;
+
+  const when = meta.importedAt ? new Date(meta.importedAt) : null;
+  const whenText = when ? when.toLocaleString() : "";
+
+  const lines = [
+    `Last import: ${meta.mode || ""}`.trim(),
+    meta.filename ? `File: ${meta.filename} (${formatBytes(meta.size)})` : "",
+    whenText ? `When: ${whenText}` : "",
+    (meta.mode === "replace")
+      ? `Now: ${meta.currentCount ?? 0} current, ${meta.archiveCount ?? 0} archive`
+      : (meta.addedCount != null ? `Added: ${meta.addedCount}` : ""),
+    (meta.duplicatesTotal != null ? `Duplicates: ${meta.duplicatesTotal}` : (meta.duplicatesInCsv != null ? `Duplicates in file: ${meta.duplicatesInCsv}` : "")),
+    (meta.failedCount != null ? `Failed: ${meta.failedCount}` : "")
+  ].filter(Boolean);
+
+  // Append under the existing import report without overwriting it
+  const metaDivId = "lastImportMeta";
+  let el = document.getElementById(metaDivId);
+  if (!el) {
+    el = document.createElement("div");
+    el.id = metaDivId;
+    el.style.marginTop = "8px";
+    importReportTarget.appendChild(el);
+  }
+
+  el.innerHTML =
+    '<div class="count-badge" style="display:block;">' +
+      lines.map(escapeHtml).join("<br>") +
+    "</div>";
+}
+renderLastImportMeta();
