@@ -110,6 +110,7 @@ body, html {
   display: flex;
   justify-content: space-between;
 }
+.bottom-actions.fixed-bottom { outline: 2px solid red; }
 
 /* Adjust circle size slightly for mobile proportions */
 .circle-icon {
@@ -130,4 +131,5 @@ body, html {
   height: 100dvh;
   overflow-y: auto;
   padding-bottom: 40px;
+
 }
