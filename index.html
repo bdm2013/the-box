@@ -93,9 +93,16 @@
 
     <!-- Add Song / Current Songs Screen -->
     <section id="add-screen" class="screen">
-      <header class="app-header">
-        <h2>Add Song</h2>
-      </header>
+     <header class="app-header header-with-toggle">
+  <h1>Song Picker</h1>
+
+  <div class="provider-toggle" aria-label="Playback provider">
+    <select id="providerSelect" title="Playback Provider" aria-label="Playback Provider">
+      <option value="apple" selected>Apple</option>
+      <option value="ytm">YouTube</option>
+    </select>
+  </div>
+</header>
 
       <div class="form-card">
         <form id="song-form" novalidate>
@@ -198,3 +205,4 @@
 </body>
 
 </html>
+
