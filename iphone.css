@@ -79,7 +79,7 @@ body, html {
 /* 5. Recent Bar: Compact and tucked above bottom bar */
 #recentBar {
   flex: 0 0 auto;
-  margin-bottom: 90px; /* Leave space for the floating bottom bar */
+  margin-bottom: 140px; /* Leave space for the floating bottom bar */
   max-height: 15vh; /* Don't let recent history eat the whole screen */
   overflow-y: auto;
 }
@@ -133,3 +133,4 @@ body, html {
   padding-bottom: 40px;
 
 }
+
