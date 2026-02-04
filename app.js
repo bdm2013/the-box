@@ -1197,8 +1197,11 @@ function makeTimestampedFilename() {
   var minutes = String(d.getMinutes()).padStart(2, "0");
   return "(songs " + month + "-" + day + "-" + yearShort + ") " + hours + "-" + minutes + ".csv";
 }
-
-if (commaCount > atCount) return ",";
+function detectDelimiter(text, defaultDelim) {
+  const firstLine = (text.split(/\r?\n/)[0] || "");
+  const commaCount = (firstLine.match(/,/g) || []).length;
+  const atCount = (firstLine.match(/@/g) || []).length;
+  if (commaCount > atCount) return ",";
   if (atCount > 0) return "@";
   return defaultDelim;
 }
