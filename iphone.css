@@ -61,13 +61,20 @@ body, html {
   width: 100%;
 }
 .result-card {
-  width: 100%;
-  max-width: 100%;
-  min-height: 60px;
-  padding: 8px 12px;
+  min-height: 74px;           
+  padding: 10px 12px;
+  align-items: flex-start;    
 }
 .result-card .title {
   font-size: 1rem;
+}
+#nowPlayingText{
+  white-space: normal;        /* allow wrapping */
+  overflow: hidden;
+  text-overflow: clip;        /* don’t force ellipsis */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;      /* show up to 2 lines */
+  -webkit-box-orient: vertical;
 }
 .copy-btn {
   min-width: 60px;
@@ -78,8 +85,9 @@ body, html {
 /* 5. Recent Bar: Compact and tucked above bottom bar */
 #recentBar {
   flex: 0 0 auto;
-  margin-bottom: 90px; /* Leave space for the floating bottom bar */
-  max-height: 15vh; /* Don't let recent history eat the whole screen */
+  margin-bottom: 0px;
+   padding-bottom: 90px;/* Leave space for the floating bottom bar */
+  max-height: 22vh; /* Don't let recent history eat the whole screen */
   overflow-y: auto;
 }
 #recentBar h3 {
@@ -132,6 +140,7 @@ body, html {
   padding-bottom: 40px;
 
 }
+
 
 
 
