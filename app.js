@@ -1,6 +1,13 @@
-// Constants
+/* ================================
+   Song Picker - app.js (Module)
+   Manual local import/export
+   Manual Firebase pull/push
+   ================================ */
+
+/* ---------- Constants ---------- */
+
 const GENRES = [
-  "Random", // virtual button; handled specially
+  "Random",
   "Pop",
   "Country",
   "Rock/Alt",
@@ -10,30 +17,82 @@ const GENRES = [
   "Metal/Hard Rock"
 ];
 const DISPLAY_GENRES = GENRES.filter(g => g !== "Random");
+
 const STORAGE_KEY = "songPicker.songs";
 const ARCHIVE_KEY = "songPicker.archive";
 const RECENT_KEY = "songPicker.recent";
+const LAST_IMPORT_META_KEY = "songPicker.lastImportMeta";
+
 const CSV_DELIM = "@";
 const RECENT_MAX = 4;
-const LAST_IMPORT_META_KEY = "songPicker.lastImportMeta";
-let importMode = "merge"; // "merge" | "replace"
 
-// State
+/* ---------- Firebase (Manual) ---------- */
+/**
+ * Paste values from Firebase Console -> Project settings -> Your apps -> Web app
+ * This uses Firestore as a "single master doc" store (manual pull/push).
+ */
+const FIREBASE_ENABLED = true;
+
+const firebaseConfig = {
+  apiKey: "PASTE_API_KEY",
+  authDomain: "PASTE_AUTH_DOMAIN",
+  projectId: "PASTE_PROJECT_ID",
+  storageBucket: "PASTE_STORAGE_BUCKET",
+  messagingSenderId: "PASTE_MSG_SENDER_ID",
+  appId: "PASTE_APP_ID"
+};
+
+// Firestore document to store the master CSV in: "collection/docId"
+const FIREBASE_DOC_PATH = "songs/state"; // e.g. collection "songPicker", doc "state"
+
+/* Firebase SDK imports (ESM) */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import {
+  getFirestore, doc, getDoc, setDoc, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+/* ---------- Firebase init ---------- */
+
+let fbApp = null;
+let fbDb = null;
+
+function initFirebase() {
+  if (!FIREBASE_ENABLED) return false;
+  try {
+    fbApp = initializeApp(firebaseConfig);
+    fbDb = getFirestore(fbApp);
+    return true;
+  } catch (e) {
+    console.warn("Firebase init failed:", e);
+    return false;
+  }
+}
+
+function getFirebaseDocRef() {
+  if (!fbDb) return null;
+  const parts = FIREBASE_DOC_PATH.split("/");
+  if (parts.length !== 2) throw new Error("FIREBASE_DOC_PATH must be 'collection/docId'");
+  return doc(fbDb, parts[0], parts[1]);
+}
+
+/* ---------- State ---------- */
+
 let songs = loadSongs();
 let archive = loadArchive();
 let recent = loadRecent();
-let isBulkOperationInProgress = false
 
-// Filter state
+let isBulkOperationInProgress = false;
+let importMode = "merge"; // "merge" | "replace"
+
+/* ---------- Filter state ---------- */
+
 const filters = {
   current: { query: "", genre: "" },
   archive: { query: "", genre: "" }
 };
 
-// Optional file binding (not restorable across reload)
-let boundFileHandle = null;
+/* ---------- Elements ---------- */
 
-// Elements
 const screens = {
   main: document.getElementById("main-screen"),
   add: document.getElementById("add-screen"),
@@ -43,14 +102,40 @@ const screens = {
 const resultEl = document.getElementById("result");
 const recentListEl = document.getElementById("recentList");
 
-// Main actions (bottom bar on main)
+// Main bar buttons
 const addSongNavBtn = document.getElementById("add-song-nav");
 const importCsvBtn = document.getElementById("import-csv-btn");
-const exportCsvBtn = document.getElementById("export-csv-btn");
 const importReplaceBtn = document.getElementById("import-replace-btn");
+const exportCsvBtn = document.getElementById("export-csv-btn");
+const firebasePullBtn = document.getElementById("firebase-pull-btn");
+const firebasePushBtn = document.getElementById("firebase-push-btn");
 const importCsvFileInput = document.getElementById("import-csv-file");
 
-// Import report target: dedicated container under main buttons (left actions)
+// Genre grid + copy
+const genreButtons = Array.from(document.querySelectorAll(".genre-btn"));
+const copySongBtn = document.getElementById("copySongBtn");
+
+// Add screen
+const songForm = document.getElementById("song-form");
+const cancelAddBtn = document.getElementById("cancel-add");
+const songListEl = document.getElementById("song-list");
+const goArchiveBtn = document.getElementById("go-archive");
+const backCurrentBtn = document.getElementById("back-current");
+const navArchiveBtn = document.getElementById("nav-archive");
+const currentCountsEl = document.getElementById("current-counts");
+const archiveAllCurrentBtn = document.getElementById("archive-all-current");
+
+// Archive screen
+const backArchiveBtn = document.getElementById("back-archive");
+const navCurrentBtn = document.getElementById("nav-current");
+const archiveListEl = document.getElementById("archive-list");
+const archiveCountsEl = document.getElementById("archive-counts");
+const deleteAllArchiveTopBtn = document.getElementById("delete-all-archive");
+const unarchiveAllTopBtn = document.getElementById("unarchive-all");
+const deleteAllArchiveBottomBtn = document.getElementById("delete-all-archive-view");
+const unarchiveAllBottomBtn = document.getElementById("unarchive-all-bottom");
+
+/* Import report target under main screen buttons */
 const importReportTarget = (() => {
   const leftActions = document.querySelector("#main-screen .bottom-actions .left-actions");
   if (!leftActions) return null;
@@ -63,31 +148,8 @@ const importReportTarget = (() => {
   return el;
 })();
 
-// Genre grid buttons
-const genreButtons = Array.from(document.querySelectorAll(".genre-btn"));
-const copySongBtn = document.getElementById("copySongBtn");
+/* ---------- Inject filter controls ---------- */
 
-// Add screen elements
-const songForm = document.getElementById("song-form");
-const cancelAddBtn = document.getElementById("cancel-add");
-const songListEl = document.getElementById("song-list");
-const goArchiveBtn = document.getElementById("go-archive");
-const backCurrentBtn = document.getElementById("back-current");
-const navArchiveBtn = document.getElementById("nav-archive");
-const currentCountsEl = document.getElementById("current-counts");
-const archiveAllCurrentBtn = document.getElementById("archive-all-current");
-
-// Archive screen elements
-const backArchiveBtn = document.getElementById("back-archive");
-const navCurrentBtn = document.getElementById("nav-current");
-const archiveListEl = document.getElementById("archive-list");
-const archiveCountsEl = document.getElementById("archive-counts");
-const deleteAllArchiveTopBtn = document.getElementById("delete-all-archive");
-const unarchiveAllTopBtn = document.getElementById("unarchive-all");
-const deleteAllArchiveBottomBtn = document.getElementById("delete-all-archive-view");
-const unarchiveAllBottomBtn = document.getElementById("unarchive-all-bottom");
-
-// Inject filter controls
 injectFilterControls({
   containerSelector: "#add-screen .list-preview",
   scope: "current",
@@ -99,10 +161,12 @@ injectFilterControls({
   onChange: () => refreshArchiveList()
 });
 
-// Navigation
+/* ---------- Navigation ---------- */
+
 addSongNavBtn?.addEventListener("click", () => showScreen("add"));
 cancelAddBtn?.addEventListener("click", () => showScreen("main"));
 backCurrentBtn?.addEventListener("click", () => showScreen("main"));
+
 navArchiveBtn?.addEventListener("click", () => {
   refreshArchiveList();
   showScreen("archive");
@@ -117,7 +181,8 @@ navCurrentBtn?.addEventListener("click", () => {
   showScreen("add");
 });
 
-// Genre buttons
+/* ---------- Genre buttons ---------- */
+
 genreButtons.forEach(btn => {
   btn.addEventListener("click", () => {
     const genre = btn.dataset.genre;
@@ -134,25 +199,23 @@ genreButtons.forEach(btn => {
   });
 });
 
-// Pick and archive — single definition (opens Apple Music)
+/* ---------- Pick and archive ---------- */
+
 async function pickAndArchiveForGenre(genre) {
   const pool = songs.filter(s => s.genre === genre);
   if (pool.length === 0) {
     renderResult(null, `No songs in ${genre} yet. Add or import some!`);
     return;
   }
-  const song = randomItem(pool);
-  renderResultWithDelay(song, 5000);
 
-  // Direct user action: open Apple Music
-  try { 
-    PlaybackManager.playSong(song); 
-  } catch (err) {
-    console.warn("Playback error", err);
-  }
+  const song = randomItem(pool);
+  renderResultWithDelay(song, 500);
+
+  try { PlaybackManager.playSong(song); } catch (err) { console.warn("Playback error", err); }
 
   pushRecent(song);
   renderRecent();
+
   const idx = songs.findIndex(s => s.id === song.id);
   if (idx !== -1) {
     archive.push(songs[idx]);
@@ -164,7 +227,8 @@ async function pickAndArchiveForGenre(genre) {
   }
 }
 
-// Copy current song text (Title — Artist only)
+/* ---------- Copy current song text ---------- */
+
 copySongBtn?.addEventListener("click", () => {
   const nowPlayingEl = resultEl?.querySelector("#nowPlayingText");
   const txt = nowPlayingEl?.textContent || "";
@@ -172,7 +236,7 @@ copySongBtn?.addEventListener("click", () => {
     notify("Nothing to copy yet.");
     return;
   }
-  // Expected format: "Title — Artist(Year)" or "Title — Artist"
+
   let title = "";
   let artist = "";
   const emDashParts = txt.split(" — ");
@@ -180,7 +244,6 @@ copySongBtn?.addEventListener("click", () => {
     title = emDashParts[0].trim();
     artist = emDashParts[1].replace(/\s*\(\d{4}\)\s*$/, "").trim();
   } else {
-    // Fallback: hyphen
     const hyphenParts = txt.split(" - ");
     if (hyphenParts.length >= 2) {
       title = hyphenParts[0].trim();
@@ -189,23 +252,33 @@ copySongBtn?.addEventListener("click", () => {
       title = txt.trim();
     }
   }
+
   const toCopy = artist ? `${title} — ${artist}` : title;
   navigator.clipboard.writeText(toCopy)
     .then(() => notify("Copied Title — Artist to clipboard."))
     .catch(() => notify("Copy failed."));
 });
 
-// Import CSV — reset input then open picker
+/* ---------- Local Import buttons ---------- */
+
 importCsvBtn?.addEventListener("click", () => {
-  if (!importCsvFileInput) {
-    alert("File input not found.");
-    return;
-  }
+  if (!importCsvFileInput) return alert("File input not found.");
   importMode = "merge";
   importCsvFileInput.value = "";
   importCsvFileInput.click();
 });
 
+importReplaceBtn?.addEventListener("click", () => {
+  if (!importCsvFileInput) return alert("File input not found.");
+  const ok = confirm("Import & Replace will overwrite Current + Archive on this device. Continue?");
+  if (!ok) return;
+
+  importMode = "replace";
+  importCsvFileInput.value = "";
+  importCsvFileInput.click();
+});
+
+/* Local Import handler */
 importCsvFileInput?.addEventListener("change", async (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
@@ -214,62 +287,21 @@ importCsvFileInput?.addEventListener("change", async (e) => {
     const text = await decodeFileText(file);
 
     if (importMode === "replace") {
-      // Replace mode: overwrite Current + Archive
-      const smart = parseCsvSmart(text, []); // ignore existingSongs
-      const { validSongs, failedLines, duplicatesInCsv, __routed } = smart;
+      const outcome = importReplaceFromText(text);
 
-      let currentRows = [];
-      let archiveRows = [];
-
-      if (__routed === "status") {
-        const { currentRows: cr, archiveRows: ar } = parseCsvWithStatus(text);
-        currentRows = cr.map(s => normalizeSongStrings(s));
-        archiveRows = ar.map(s => normalizeSongStrings(s));
-      } else {
-        currentRows = validSongs.map(s => normalizeSongStrings(s));
-        archiveRows = [];
-      }
-
-      // Ensure unique IDs across both lists
-      const seenIds = new Set();
-      function ensureIds(list) {
-        return list.map(s => {
-          let id = s?.id ? String(s.id) : "";
-          if (!id || seenIds.has(id)) id = makeId();
-          seenIds.add(id);
-          return { ...s, id };
-        });
-      }
-
-      songs = ensureIds(currentRows);
-      archive = ensureIds(archiveRows);
-
-      saveSongs(songs);
-      saveArchive(archive);
-
-      refreshSongList();
-      refreshArchiveList();
-
-      const meta = {
+      renderImportReport(outcome.report);
+      saveLastImportMeta({
         mode: "replace",
         filename: file.name || "",
         size: file.size || 0,
         importedAt: new Date().toISOString(),
-        routed: __routed,
+        routed: outcome.routed,
         currentCount: songs.length,
         archiveCount: archive.length,
-        failedCount: failedLines.length,
-        duplicatesInCsv
-      };
-      saveLastImportMeta(meta);
-      renderLastImportMeta();
-
-      renderImportReport({
-        successCount: songs.length + archive.length,
-        duplicatesTotal: duplicatesInCsv,
-        failedCount: failedLines.length,
-        failedLines
+        failedCount: outcome.report.failedCount,
+        duplicatesInCsv: outcome.duplicatesInCsv
       });
+      renderLastImportMeta();
 
       notify(`Replaced with ${songs.length} current and ${archive.length} archived.`);
       renderResult(null, "Imported & replaced data.");
@@ -277,13 +309,12 @@ importCsvFileInput?.addEventListener("change", async (e) => {
       return;
     }
 
-    // Merge mode (your existing behavior)
+    // Merge mode
     const report = parseCsvSmart(text, songs);
     const { validSongs, failedLines, duplicatesInCsv, duplicatesVsCurrent, __routed } = report;
 
     const normalized = validSongs.map(s => normalizeSongStrings(s));
     const addedCount = mergeImportedSongs(normalized);
-
     const duplicatesTotal = duplicatesInCsv + duplicatesVsCurrent;
 
     renderImportReport({
@@ -293,7 +324,7 @@ importCsvFileInput?.addEventListener("change", async (e) => {
       failedLines
     });
 
-    const meta = {
+    saveLastImportMeta({
       mode: "merge",
       filename: file.name || "",
       size: file.size || 0,
@@ -302,8 +333,7 @@ importCsvFileInput?.addEventListener("change", async (e) => {
       addedCount,
       duplicatesTotal,
       failedCount: failedLines.length
-    };
-    saveLastImportMeta(meta);
+    });
     renderLastImportMeta();
 
     notify(`Import: ${addedCount} added, ${duplicatesTotal} duplicates, ${failedLines.length} failed.`);
@@ -311,14 +341,22 @@ importCsvFileInput?.addEventListener("change", async (e) => {
     renderResult(null, `Imported ${addedCount} song(s).`);
     showScreen("main");
   } catch (err) {
+    console.error(err);
+    renderImportReport({
+      successCount: 0,
+      duplicatesTotal: 0,
+      failedCount: 1,
+      failedLines: [`Import failed: ${err?.message || String(err)}`]
+    });
     notify("Import failed.");
   } finally {
-    importMode = "merge"; // always reset
+    importMode = "merge";
     importCsvFileInput.value = "";
   }
 });
 
-// Export CSV
+/* ---------- Local Export ---------- */
+
 exportCsvBtn?.addEventListener("click", async () => {
   const csv = allSongsToCsv(songs, archive, { withBom: true });
   const filename = makeTimestampedFilename();
@@ -336,32 +374,102 @@ exportCsvBtn?.addEventListener("click", async () => {
       notify(`Exported to chosen location as ${filename}`);
       return;
     } catch (err) {
-      if (err?.name === "AbortError") {
-        notify("Export canceled.");
-        return;
-      }
+      if (err?.name === "AbortError") return notify("Export canceled.");
       console.warn("Save dialog failed; falling back to download.", err);
     }
   }
 
-  // Fallback: classic browser download
   try {
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     downloadBlob(blob, filename);
     notify(`Exported as ${filename}`);
   } catch (err) {
     console.error("Fallback download failed:", err);
-    alert("Export failed. Try a supported browser (Chrome/Edge) or run over HTTPS/localhost.");
+    alert("Export failed. Try a supported browser or run over HTTPS/localhost.");
   }
 });
 
-// Archive All Current Songs
+/* ---------- Firebase Manual Pull / Push ---------- */
+
+const firebaseOk = initFirebase();
+
+firebasePullBtn?.addEventListener("click", async () => {
+  if (!firebaseOk) return alert("Firebase is not configured. Paste firebaseConfig values in app.js.");
+  const ok = confirm("Firebase Pull will overwrite Current + Archive on this device. Continue?");
+  if (!ok) return;
+
+  try {
+    const ref = getFirebaseDocRef();
+    if (!ref) throw new Error("Firebase ref not available.");
+
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      notify("Firebase dataset not found. Use Firebase Push first.");
+      return;
+    }
+
+    const data = snap.data() || {};
+    const csv = String(data.csv || "");
+    if (!csv.trim()) {
+      notify("Firebase has no CSV data.");
+      return;
+    }
+
+    const outcome = importReplaceFromText(csv);
+
+    renderImportReport(outcome.report);
+    saveLastImportMeta({
+      mode: "firebase-pull",
+      filename: "Firebase:" + FIREBASE_DOC_PATH,
+      size: csv.length,
+      importedAt: new Date().toISOString(),
+      routed: outcome.routed,
+      currentCount: songs.length,
+      archiveCount: archive.length,
+      failedCount: outcome.report.failedCount,
+      duplicatesInCsv: outcome.duplicatesInCsv
+    });
+    renderLastImportMeta();
+
+    notify(`Firebase Pull: ${songs.length} current, ${archive.length} archived.`);
+    showScreen("main");
+  } catch (err) {
+    console.error(err);
+    notify("Firebase Pull failed.");
+    alert("Firebase Pull failed: " + (err?.message || String(err)));
+  }
+});
+
+firebasePushBtn?.addEventListener("click", async () => {
+  if (!firebaseOk) return alert("Firebase is not configured. Paste firebaseConfig values in app.js.");
+  const ok = confirm("Firebase Push will overwrite the dataset in Firebase. Continue?");
+  if (!ok) return;
+
+  try {
+    const ref = getFirebaseDocRef();
+    if (!ref) throw new Error("Firebase ref not available.");
+
+    const csv = allSongsToCsv(songs, archive, { withBom: false });
+
+    await setDoc(ref, {
+      csv,
+      updatedAt: serverTimestamp(),
+      version: Date.now()
+    }, { merge: true });
+
+    notify("Firebase Push complete.");
+  } catch (err) {
+    console.error(err);
+    notify("Firebase Push failed.");
+    alert("Firebase Push failed: " + (err?.message || String(err)));
+  }
+});
+
+/* ---------- Bulk ops ---------- */
+
 archiveAllCurrentBtn?.addEventListener("click", async (e) => {
   e.stopPropagation();
-  if (songs.length === 0) {
-    notify("No current songs to archive.");
-    return;
-  }
+  if (songs.length === 0) return notify("No current songs to archive.");
   const ok = confirm("Archive ALL current songs?");
   if (!ok) return;
 
@@ -379,7 +487,8 @@ archiveAllCurrentBtn?.addEventListener("click", async (e) => {
   }
 });
 
-// Current list actions
+/* ---------- Current list actions ---------- */
+
 songListEl?.addEventListener("click", async (e) => {
   const btn = e.target.closest("button[data-action][data-id]");
   if (!btn || !songListEl.contains(btn)) return;
@@ -410,7 +519,8 @@ songListEl?.addEventListener("click", async (e) => {
   }
 });
 
-// Archive list actions
+/* ---------- Archive list actions ---------- */
+
 archiveListEl?.addEventListener("click", async (e) => {
   const btn = e.target.closest("button[data-action][data-id]");
   if (!btn || !archiveListEl.contains(btn)) return;
@@ -442,8 +552,8 @@ archiveListEl?.addEventListener("click", async (e) => {
   }
 });
 
-  
-// Recent list actions — unarchive by artist+title match
+/* ---------- Recent list actions: unarchive by artist+title ---------- */
+
 recentListEl?.addEventListener("click", async (e) => {
   const btn = e.target.closest("button[data-action][data-id]");
   if (!btn || !recentListEl.contains(btn)) return;
@@ -457,7 +567,6 @@ recentListEl?.addEventListener("click", async (e) => {
   const targetArtist = String(entry.artist || "").trim().toLowerCase();
   const targetTitle = String(entry.title || "").trim().toLowerCase();
 
-  // Find all archived songs that match artist+title (ignore year/genre)
   const toRestoreIndexes = [];
   for (let i = 0; i < archive.length; i++) {
     const s = archive[i];
@@ -469,12 +578,8 @@ recentListEl?.addEventListener("click", async (e) => {
     }
   }
 
-  if (toRestoreIndexes.length === 0) {
-    notify("No matching archived song found to unarchive.");
-    return;
-  }
+  if (toRestoreIndexes.length === 0) return notify("No matching archived song found to unarchive.");
 
-  // Restore all matches
   for (let i = toRestoreIndexes.length - 1; i >= 0; i--) {
     const aIdx = toRestoreIndexes[i];
     songs.push(archive[aIdx]);
@@ -488,17 +593,16 @@ recentListEl?.addEventListener("click", async (e) => {
   notify(`Returned ${toRestoreIndexes.length} song(s) to Current.`);
 });
 
-// Unarchive All
+/* ---------- Unarchive All ---------- */
+
 unarchiveAllTopBtn?.addEventListener("click", () => unarchiveAll());
 unarchiveAllBottomBtn?.addEventListener("click", () => unarchiveAll());
 
 async function unarchiveAll() {
-  if (archive.length === 0) {
-    notify("No archived songs to unarchive.");
-    return;
-  }
+  if (archive.length === 0) return notify("No archived songs to unarchive.");
   const ok = confirm("Move ALL archived songs back to Current?");
   if (!ok) return;
+
   songs.push(...archive);
   saveSongs(songs);
   archive = [];
@@ -508,7 +612,8 @@ async function unarchiveAll() {
   notify("All archived songs moved back to Current.");
 }
 
-// Delete All
+/* ---------- Delete All Archive ---------- */
+
 deleteAllArchiveTopBtn?.addEventListener("click", (e) => {
   e.stopPropagation();
   deleteAllArchive();
@@ -519,37 +624,33 @@ deleteAllArchiveBottomBtn?.addEventListener("click", (e) => {
 });
 
 async function deleteAllArchive() {
-  if (archive.length === 0) {
-    notify("No archived songs to delete.");
-    return;
-  }
+  if (archive.length === 0) return notify("No archived songs to delete.");
   const ok = confirm("Delete ALL archived songs? This cannot be undone.");
   if (!ok) return;
+
   archive = [];
   saveArchive(archive);
   refreshArchiveList();
   notify("All archived songs deleted.");
 }
 
-// Add Song form submit
+/* ---------- Add Song form ---------- */
+
 songForm?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const formData = new FormData(songForm);
 
-  // Normalize inputs
   const artistInput = normalizeText(String(formData.get("artist") || "")).trim();
   const titleInput = normalizeText(String(formData.get("title") || "")).trim();
   const year = normalizeYearOptional(formData.get("year"));
   const genre = String(formData.get("genre") || "");
 
-  // Validate requireds and ranges
   const errors = validateSong({ artist: artistInput, title: titleInput, year, genre });
   if (errors.length) {
     alert("Please fix:\n\n" + errors.join("\n"));
     return;
   }
 
-  // Duplicate check (Current + Archive)
   const targetArtist = artistInput.toLowerCase();
   const targetTitle = titleInput.toLowerCase();
   const dup = [...songs, ...archive].some(s =>
@@ -561,51 +662,30 @@ songForm?.addEventListener("submit", async (e) => {
     return;
   }
 
-  // Create and save
   const newSong = { id: makeId(), artist: artistInput, title: titleInput, year, genre };
   songs.push(newSong);
   saveSongs(songs);
   songForm.reset();
   refreshSongList();
   showScreen("main");
+
   const yearText = year != null ? `(${year})` : "";
   renderResult(null, `Added: ${titleInput} by ${artistInput}${yearText} in ${genre}`);
 });
 
 /* ---------- Apple Music Integration ---------- */
 
-/* ---------- Apple Music Integration (Deep Link Fix) ---------- */
-
 const PlaybackManager = (() => {
   function playSong({ title, artist }) {
     if (!title || !artist) return;
-
-    // 1. Encode the query
     const query = encodeURIComponent(`${title} ${artist}`);
-    
-    // 2. Detect if the user is on an iPhone/iPad
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-    let url;
-
-    if (isIOS) {
-      // iOS SPECIFIC: Use the 'music://' protocol.
-      // This tells the OS "Send this search query directly to the Music App"
-      // We remove the '/us/' so it defaults to the user's own region store.
-      url = `music://music.apple.com/search?term=${query}`;
-    } else {
-      // DESKTOP / ANDROID: Use the standard web URL.
-      // This opens the Web Player or iTunes on PC.
-      url = `https://music.apple.com/us/search?term=${query}`;
-    }
-
-    // 3. Open the link
-    // On iOS, this will prompt "Open in Music?" or jump straight there.
-    window.open(url, '_blank');
-    
+    const url = isIOS
+      ? `music://music.apple.com/search?term=${query}`
+      : `https://music.apple.com/us/search?term=${query}`;
+    window.open(url, "_blank");
     notify(`Opening "${title}" in Apple Music...`);
   }
-
   return { playSong };
 })();
 
@@ -644,6 +724,7 @@ function injectFilterControls({ containerSelector, scope, onChange }) {
   anyOpt.value = "";
   anyOpt.textContent = "All genres";
   select.appendChild(anyOpt);
+
   DISPLAY_GENRES.forEach(g => {
     const opt = document.createElement("option");
     opt.value = g;
@@ -665,11 +746,8 @@ function injectFilterControls({ containerSelector, scope, onChange }) {
   wrap.appendChild(select);
 
   const listHeader = container.querySelector(".list-header");
-  if (listHeader) {
-    container.insertBefore(wrap, listHeader.nextSibling);
-  } else {
-    container.insertBefore(wrap, container.firstChild);
-  }
+  if (listHeader) container.insertBefore(wrap, listHeader.nextSibling);
+  else container.insertBefore(wrap, container.firstChild);
 
   return { search, select, wrap };
 }
@@ -687,10 +765,6 @@ function applyFilters(list, scope) {
   });
 }
 
-function supportsFileSystemAccess() {
-  return typeof window.showOpenFilePicker === "function";
-}
-
 /* ---------- Rendering ---------- */
 
 function showScreen(which) {
@@ -701,12 +775,10 @@ function showScreen(which) {
   if (which === "archive") refreshArchiveList();
 }
 
-function renderResultWithDelay(song, delayMs = 5000) {
+function renderResultWithDelay(song, delayMs = 500) {
   if (!resultEl) return;
-  if (!song) {
-    renderResult(null, "No selection");
-    return;
-  }
+  if (!song) return renderResult(null, "No selection");
+
   const { title, artist, genre, year } = song;
   const yearText = year != null ? `(${year})` : "";
 
@@ -741,19 +813,14 @@ function renderResult(song, message) {
     return;
   }
 
-  var title = song.title;
-  var artist = song.artist;
-  var genre = song.genre;
-  var year = song.year;
-
-  var yearText = (year != null) ? "(" + year + ")" : "";
-  var text = escapeHtml(title) + " — " + escapeHtml(artist) + escapeHtml(yearText);
+  var yearText = (song.year != null) ? "(" + song.year + ")" : "";
+  var text = escapeHtml(song.title) + " — " + escapeHtml(song.artist) + escapeHtml(yearText);
 
   resultEl.innerHTML =
     '<div class="meta">' +
       '<div id="nowPlayingText" class="title">' + text + '</div>' +
       '<div class="subtitle">' +
-        '<span id="nowPlayingGenrePill" class="badge genre-pill ' + genreClass(genre) + '">' + escapeHtml(genre) + '</span>' +
+        '<span id="nowPlayingGenrePill" class="badge genre-pill ' + genreClass(song.genre) + '">' + escapeHtml(song.genre) + '</span>' +
       '</div>' +
     '</div>';
 }
@@ -770,7 +837,7 @@ function refreshSongList() {
 
   songListEl.innerHTML = filtered
     .map(function(s) {
-      var yearText = (s.year != null) ? '(' + s.year + ')' : '';
+      var yearText = (s.year != null) ? "(" + s.year + ")" : "";
       return '<li>' +
         '<div class="item-row">' +
           '<div class="item-meta">' +
@@ -784,7 +851,7 @@ function refreshSongList() {
         '</div>' +
       '</li>';
     })
-    .join('');
+    .join("");
 }
 
 function refreshArchiveList() {
@@ -799,7 +866,7 @@ function refreshArchiveList() {
 
   archiveListEl.innerHTML = filtered
     .map(function(s) {
-      var yearText = (s.year != null) ? '(' + s.year + ')' : '';
+      var yearText = (s.year != null) ? "(" + s.year + ")" : "";
       return '<li>' +
         '<div class="item-row">' +
           '<div class="item-meta">' +
@@ -813,7 +880,7 @@ function refreshArchiveList() {
         '</div>' +
       '</li>';
     })
-    .join('');
+    .join("");
 }
 
 function renderCounts(list) {
@@ -825,98 +892,33 @@ function renderCounts(list) {
   const total = list.length;
   const badges = DISPLAY_GENRES
     .map(function(g) {
-      return '<span class="count-badge">' + g + ': ' + counts[g] + '</span>';
+      return '<span class="count-badge">' + g + ": " + counts[g] + "</span>";
     })
-    .join(' ');
-  return '<span class="count-badge">Total: ' + total + '</span> ' + badges;
+    .join(" ");
+  return '<span class="count-badge">Total: ' + total + "</span> " + badges;
 }
 
-/* ---------- Validation and utils ---------- */
+/* ---------- Storage helpers ---------- */
 
-function validateSong({ artist, title, year, genre }) {
-  const errs = [];
-  if (!artist) errs.push("Artist is required.");
-  if (!title) errs.push("Song title is required.");
-  if (year != null) {
-    if (!Number.isFinite(year) || year < 1900 || year > 2100) errs.push("Year must be between 1900 and 2100.");
-  }
-  if (!DISPLAY_GENRES.includes(genre)) errs.push("Genre must be selected.");
-  return errs;
-}
-
-function randomItem(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function saveSongs(list) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-}
+function saveSongs(list) { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); }
 function loadSongs() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+  try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; }
+  catch { return []; }
 }
 
-// Auto-save helper (manual use only)
-async function persistIfBound() {
-  if (!boundFileHandle) return;
-  try {
-    const perm = await boundFileHandle.queryPermission?.({ mode: "readwrite" });
-    if (perm === "denied") {
-      const req = await boundFileHandle.requestPermission?.({ mode: "readwrite" });
-      if (req !== "granted") {
-        notify("Write permission not granted. Auto-save paused.");
-        updateBindButtonState(false);
-        boundFileHandle = null;
-        return;
-      }
-    }
-    const writable = await boundFileHandle.createWritable();
-    const csv = allSongsToCsv(songs, archive, { withBom: true });
-    await writable.write(csv);
-    await writable.close();
-    updateBindButtonState(true);
-  } catch (err) {
-    console.error(err);
-    notify("Auto-save failed.");
-  }
-}
-
-function updateBindButtonState(isBound) {
-  if (!bindCsvBtn) return;
-  bindCsvBtn.classList.toggle("bind-bound", !!isBound);
-  bindCsvBtn.classList.toggle("bind-not-bound", !isBound);
-  const label = isBound ? "Bound (Manual Save)" : "Bind CSV";
-  bindCsvBtn.title = label;
-  bindCsvBtn.setAttribute("aria-label", label);
-}
-
-function saveArchive(list) {
-  localStorage.setItem(ARCHIVE_KEY, JSON.stringify(list));
-}
+function saveArchive(list) { localStorage.setItem(ARCHIVE_KEY, JSON.stringify(list)); }
 function loadArchive() {
-  try {
-    const raw = localStorage.getItem(ARCHIVE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+  try { const raw = localStorage.getItem(ARCHIVE_KEY); return raw ? JSON.parse(raw) : []; }
+  catch { return []; }
 }
 
-function saveRecent(list) {
-  localStorage.setItem(RECENT_KEY, JSON.stringify(list));
-}
+function saveRecent(list) { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); }
 function loadRecent() {
-  try {
-    const raw = localStorage.getItem(RECENT_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+  try { const raw = localStorage.getItem(RECENT_KEY); return raw ? JSON.parse(raw) : []; }
+  catch { return []; }
 }
+
+/* ---------- Recent ---------- */
 
 function pushRecent(song) {
   const entry = { artist: song.artist, title: song.title, genre: song.genre, year: song.year ?? null };
@@ -937,18 +939,19 @@ function renderRecent() {
       var safeIdx = String(idx);
       return '<div class="item-row">' +
         '<div class="item-meta">' +
-          '<span class="title">' + escapeHtml(r.title) + ' — ' + escapeHtml(r.artist) + escapeHtml(yearText) + '</span>' +
-          '<span class="badge genre-pill ' + genreClass(r.genre) + '">' + escapeHtml(r.genre) + '</span>' +
-        '</div>' +
+          '<span class="title">' + escapeHtml(r.title) + " — " + escapeHtml(r.artist) + escapeHtml(yearText) + "</span>" +
+          '<span class="badge genre-pill ' + genreClass(r.genre) + '">' + escapeHtml(r.genre) + "</span>" +
+        "</div>" +
         '<div class="actions">' +
           '<button type="button" class="icon-btn" data-action="recent-unarchive" data-id="' + safeIdx + '">Unarchive</button>' +
-        '</div>' +
-      '</div>';
+        "</div>" +
+      "</div>";
     })
     .join("");
 }
 
-// HTML escaper
+/* ---------- HTML escape ---------- */
+
 function escapeHtml(str) {
   return String(str)
     .replaceAll("&", "&amp;")
@@ -957,6 +960,8 @@ function escapeHtml(str) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
+
+/* ---------- Normalizers ---------- */
 
 function normalizeText(s) {
   if (!s) return s;
@@ -982,7 +987,7 @@ function normalizeSongStrings(s) {
 function normalizeYearOptional(y) {
   const str = String(y ?? "")
     .replace(/\u00A0/g, " ")
-.replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
     .trim();
   if (str === "") return null;
 
@@ -993,17 +998,21 @@ function normalizeYearOptional(y) {
   return Number.isFinite(num) ? num : null;
 }
 
-function genreClass(genre) {
-  const key = String(genre || "").toLowerCase();
-  const simple = key.replace(/\s+/g, "");
-  if (simple.includes("pop")) return "genre-pop";
-  if (simple.includes("country")) return "genre-country";
-  if (simple.includes("rock/alt") || key === "rock" || simple.includes("alt")) return "genre-rock";
-  if (simple.includes("r&b") || simple.includes("hiphop") || simple.includes("hip-hop")) return "genre-rnb";
-  if (simple.includes("tv") || simple.includes("movie") || simple.includes("kids")) return "genre-tv";
-  if (simple.includes("metal")) return "genre-metal";
-  return "genre-other";
+function normalizeGenre(genreRaw) {
+  const g = String(genreRaw || "").trim();
+  if (DISPLAY_GENRES.includes(g)) return g;
+
+  const k = g.toLowerCase().replace(/\s+/g, "");
+  if (k.includes("pop")) return "Pop";
+  if (k.includes("country")) return "Country";
+  if (k.includes("rock") || k.includes("alt")) return "Rock/Alt";
+  if (k.includes("r&b") || k.includes("hiphop") || k.includes("hip-hop")) return "R&B/HipHop";
+  if (k.includes("tv") || k.includes("movie") || k.includes("kids")) return "Tv/Movie/Kids";
+  if (k.includes("metal")) return "Metal/Hard Rock";
+  return "Other";
 }
+
+/* ---------- IDs ---------- */
 
 function makeId() {
   if (window.crypto?.getRandomValues) {
@@ -1013,6 +1022,21 @@ function makeId() {
   }
   return Math.random().toString(36).slice(2, 10);
 }
+
+function ensureUniqueIdsAcrossLists(currentRows, archiveRows) {
+  const seen = new Set();
+  function fix(list) {
+    return list.map(s => {
+      let id = s?.id ? String(s.id) : "";
+      if (!id || seen.has(id)) id = makeId();
+      seen.add(id);
+      return { ...s, id };
+    });
+  }
+  return { current: fix(currentRows), archived: fix(archiveRows) };
+}
+
+/* ---------- Download helpers ---------- */
 
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -1025,6 +1049,8 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
+/* ---------- Toast ---------- */
+
 function notify(text) {
   console.log(text);
   try {
@@ -1033,7 +1059,7 @@ function notify(text) {
       toast = document.createElement("div");
       toast.id = "toast";
       toast.style.position = "fixed";
-      toast.style.bottom = "80px"; /* Raised slightly for mobile nav bar */
+      toast.style.bottom = "80px";
       toast.style.left = "50%";
       toast.style.transform = "translateX(-50%)";
       toast.style.background = "#111827";
@@ -1053,9 +1079,8 @@ function notify(text) {
   } catch (_) {}
 }
 
-/**
- * Decode file as UTF-8; if many replacement chars appear, retry as Windows-1252.
- */
+/* ---------- File decode ---------- */
+
 async function decodeFileText(file) {
   const buf = await file.arrayBuffer();
 
@@ -1065,22 +1090,20 @@ async function decodeFileText(file) {
   try {
     const cp1252Decoder = new TextDecoder("windows-1252", { fatal: false });
     const cpText = cp1252Decoder.decode(buf);
-    if (countReplacement(cpText) < countReplacement(text)) {
-      return cpText;
-    }
+    if (countReplacement(cpText) < countReplacement(text)) return cpText;
     return text;
   } catch {
     return text;
   }
 }
 
-function looksCorrupt(s) {
-  return countReplacement(s) >= 2;
-}
+function looksCorrupt(s) { return countReplacement(s) >= 2; }
 function countReplacement(s) {
   const m = s.match(/\uFFFD/g);
   return m ? m.length : 0;
 }
+
+/* ---------- CSV export ---------- */
 
 function allSongsToCsv(currentList, archiveList, opts = {}) {
   const header = ["Status", "Artist", "Title", "Year", "Genre"].join(CSV_DELIM);
@@ -1098,12 +1121,11 @@ function csvEscape(val) {
     (str.indexOf(CSV_DELIM) !== -1) ||
     /\r|\n/.test(str);
 
-  // Escape double quotes by doubling them
   var escaped = str.replace(/"/g, '""');
-
   return needsQuotes ? '"' + escaped + '"' : escaped;
 }
 
+/* iOS-safe filename: no ":" */
 function makeTimestampedFilename() {
   var d = new Date();
   var month = String(d.getMonth() + 1).padStart(2, "0");
@@ -1111,12 +1133,10 @@ function makeTimestampedFilename() {
   var yearShort = String(d.getFullYear()).slice(-2);
   var hours = String(d.getHours()).padStart(2, "0");
   var minutes = String(d.getMinutes()).padStart(2, "0");
-
-  // No ":" (iOS-friendly). Also remove extra spaces.
   return "(songs " + month + "-" + day + "-" + yearShort + ") " + hours + "-" + minutes + ".csv";
 }
 
-/* ---------- Delimiter and CSV line parsing ---------- */
+/* ---------- CSV parsing ---------- */
 
 function detectDelimiter(text, defaultDelim) {
   const firstLine = (text.split(/\r?\n/)[0] || "");
@@ -1127,12 +1147,10 @@ function detectDelimiter(text, defaultDelim) {
   return defaultDelim;
 }
 
-// Smart CSV import: route to status-aware or plain parser automatically
 function parseCsvSmart(text, existingSongs = []) {
   const delim = detectDelimiter(text, CSV_DELIM);
   const lines = text.split(/\r?\n/);
 
-  // Remove ASCII control characters except tab (0x09)
   for (let i = 0; i < lines.length; i++) {
     lines[i] = lines[i].replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "");
   }
@@ -1147,16 +1165,12 @@ function parseCsvSmart(text, existingSongs = []) {
     };
   }
 
-  // Peek header
   const headerLine = lines[0] || "";
   const headerCols = parseDelimitedLine(headerLine, delim).map(s => s.toLowerCase());
   const hasHeader = headerCols.some(c => ["status", "artist", "title", "year", "genre"].includes(c));
 
-  // Find first non-empty data line
   let firstDataIdx = hasHeader ? 1 : 0;
-  while (firstDataIdx < lines.length && (!lines[firstDataIdx] || !lines[firstDataIdx].trim())) {
-    firstDataIdx++;
-  }
+  while (firstDataIdx < lines.length && (!lines[firstDataIdx] || !lines[firstDataIdx].trim())) firstDataIdx++;
   const firstDataLine = lines[firstDataIdx] || "";
   const firstCols = firstDataLine ? parseDelimitedLine(firstDataLine, delim) : [];
 
@@ -1164,7 +1178,6 @@ function parseCsvSmart(text, existingSongs = []) {
     firstCols.length >= 1 &&
     ["current", "archive"].includes(String(firstCols[0] || "").trim().toLowerCase());
 
-  // Route
   if ((hasHeader && headerCols.includes("status")) || looksStatusFirst) {
     const { currentRows, archiveRows, failedLines, duplicatesInCsv } = parseCsvWithStatus(lines.join("\n"));
     const validSongs = [...currentRows, ...archiveRows];
@@ -1177,7 +1190,6 @@ function parseCsvSmart(text, existingSongs = []) {
     };
   }
 
-  // Default
   const report = parseCsvWithReport(lines.join("\n"), existingSongs);
   return { ...report, __routed: "report" };
 }
@@ -1186,35 +1198,25 @@ function parseDelimitedLine(line, delim) {
   const out = [];
   let cur = "";
   let inQuotes = false;
+
   for (let i = 0; i < line.length; i++) {
     const ch = line[i];
     if (inQuotes) {
       if (ch === '"') {
-        if (line[i + 1] === '"') {
-          cur += '"';
-          i++;
-        } else {
-          inQuotes = false;
-        }
+        if (line[i + 1] === '"') { cur += '"'; i++; }
+        else inQuotes = false;
       } else {
         cur += ch;
       }
     } else {
-      if (ch === '"') {
-        inQuotes = true;
-      } else if (ch === delim) {
-        out.push(cur);
-        cur = "";
-      } else {
-        cur += ch;
-      }
+      if (ch === '"') inQuotes = true;
+      else if (ch === delim) { out.push(cur); cur = ""; }
+      else cur += ch;
     }
   }
   out.push(cur);
   return out.map(s => s.trim());
 }
-
-/* -------- Import parsing with unified duplicate count -------- */
 
 function parseCsvWithReport(text, existingSongs = []) {
   const delim = detectDelimiter(text, CSV_DELIM);

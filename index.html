@@ -3,18 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <title>Song Picker</title>
-  
-  <!-- Critical for mobile scaling -->
+
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="color-scheme" content="dark light" />
-  
-  <!-- Main Stylesheet (Always loads) -->
+
   <link rel="stylesheet" href="styles.css" />
-
-  <!-- Mobile Layout (Loads for ANY screen narrower than 768px) -->
-  <!-- This replaces the JavaScript User Agent check -->
   <link rel="stylesheet" href="iphone.css" media="(max-width: 768px)" />
-
 </head>
 <body>
   <div id="app" class="app-root">
@@ -58,16 +52,29 @@
       <!-- Bottom Actions -->
       <div class="bottom-actions fixed-bottom" role="toolbar" aria-label="Main actions">
         <div class="left-actions">
-          <button type="button" id="import-csv-btn" class="circle-icon circle-green" title="Import CSV" aria-label="Import CSV">
+          <!-- Local file actions -->
+          <button type="button" id="import-csv-btn" class="circle-icon circle-green" title="Import (Merge)" aria-label="Import (Merge)">
             <span class="icon-label" aria-hidden="true">⇩</span>
           </button>
-          <button type="button" id="export-csv-btn" class="circle-icon circle-green" title="Export CSV" aria-label="Export CSV">
+
+          <button type="button" id="import-replace-btn" class="circle-icon circle-green" title="Import & Replace" aria-label="Import & Replace">
+            <span class="icon-label" aria-hidden="true">⟲</span>
+          </button>
+
+          <button type="button" id="export-csv-btn" class="circle-icon circle-green" title="Export (File)" aria-label="Export (File)">
             <span class="icon-label" aria-hidden="true">⇧</span>
           </button>
-         <button type="button" id="import-replace-btn" class="circle-icon circle-green" title="Import & Replace" aria-label="Import & Replace">
-  <span class="icon-label" aria-hidden="true">⟲</span>
-</button>
+
+          <!-- Firebase manual actions (separate) -->
+          <button type="button" id="firebase-pull-btn" class="circle-icon circle-green" title="Firebase Pull" aria-label="Firebase Pull">
+            <span class="icon-label" aria-hidden="true">☁︎⇩</span>
+          </button>
+
+          <button type="button" id="firebase-push-btn" class="circle-icon circle-green" title="Firebase Push" aria-label="Firebase Push">
+            <span class="icon-label" aria-hidden="true">☁︎⇧</span>
+          </button>
         </div>
+
         <div class="right-actions">
           <button type="button" id="add-song-nav" class="circle-icon circle-green" title="Add Song" aria-label="Add Song">
             <span class="icon-label" aria-hidden="true">＋</span>
@@ -178,6 +185,7 @@
     <input id="import-csv-file" type="file" accept=".csv,text/csv" hidden />
   </div>
 
-  <script src="app.js"></script>
+  <!-- app.js is now a module because it includes Firebase ESM imports -->
+  <script type="module" src="app.js"></script>
 </body>
 </html>

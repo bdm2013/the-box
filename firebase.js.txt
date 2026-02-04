@@ -1,0 +1,51 @@
+// firebase.js
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import {
+  getFirestore, collection, doc, addDoc, setDoc, deleteDoc,
+  onSnapshot, query, where, orderBy, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "...",
+  authDomain: "...",
+  projectId: "...",
+  storageBucket: "...",
+  messagingSenderId: "...",
+  appId: "..."
+};
+
+const app = initializeApp(firebaseConfig);
+export const db = getFirestore(app);
+
+export const api = {
+  listenSongs({ uid, onChange }) {
+    const col = collection(db, `users/${uid}/songs`);
+    const q = query(col, orderBy("updatedAt", "desc"));
+    return onSnapshot(q, (snap) => {
+      const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      onChange(rows);
+    });
+  },
+
+  async upsertSong({ uid, song }) {
+    const ref = song.id
+      ? doc(db, `users/${uid}/songs/${song.id}`)
+      : doc(collection(db, `users/${uid}/songs`));
+
+    const data = {
+      artist: song.artist,
+      title: song.title,
+      year: song.year ?? null,
+      genre: song.genre,
+      status: song.status || "Current",
+      updatedAt: serverTimestamp()
+    };
+
+    await setDoc(ref, data, { merge: true });
+    return ref.id;
+  },
+
+  async deleteSong({ uid, id }) {
+    await deleteDoc(doc(db, `users/${uid}/songs/${id}`));
+  }
+};
