@@ -764,16 +764,6 @@ songForm?.addEventListener("submit", async (e) => {
 
 /* ---------- Playback Integration (Apple Music + YouTube Music) ---------- */
 
-/**
- * Requires:
- * - `provider` string state set elsewhere: "apple" | "ytm"
- * - `notify()` defined
- *
- * Notes:
- * - On iOS/Safari, opening a new window after an `await` can be blocked.
- *   This implementation uses a named tab and opens it directly when possible.
- * - YouTube Data API key should be restricted by HTTP referrers in Google Cloud Console.
- */
  Build YouTube queries based on genre.
  - Tv/Movie/Kids: ONLY "Title Artist"
  - Others: include a few helpful variants, ending with plain "Title Artist"
@@ -785,11 +775,6 @@ function buildYouTubeQueries({ title, artist, genre }) {
   return [`${base} lyrics`, `${base} audio`, base];
 }
 
-/**
- * PlaybackManager handles:
- * - Apple Music: deep link (iOS) or web search (others)
- * - YouTube Music: uses YouTube Data API to find a music video id, then opens music.youtube.com/watch?v=...
- */
 const PlaybackManager = (() => {
   const TAB_TARGET = "player-tab"; // reuse same external tab
 
@@ -1750,6 +1735,7 @@ refreshArchiveList();
 renderRecent();
 
 renderLastImportMeta();
+
 
 
 
