@@ -300,8 +300,8 @@ async function pickAndArchiveForGenre(genre) {
   const song = randomItem(pool);
   renderResultWithDelay(song, 500);
 
- try { await PlaybackManager.playSong(song); } catch (err) { console.warn("Playback error", err); notify("Playback failed."); }
-
+ try { await PlaybackManager.playSong(song); } catch (err) { console.warn("Playback error", err); notify(err?.message || "Playback failed."); }
+   
   pushRecent(song);
   renderRecent();
 
@@ -762,21 +762,54 @@ songForm?.addEventListener("submit", async (e) => {
   renderResult(null, `Added: ${titleInput} by ${artistInput}${yearText} in ${genre}`);
 });
 
-/* ---------- Apple Music Integration ---------- */
+/* ---------- Playback Integration (Apple Music + YouTube Music) ---------- */
 
+/**
+ * Requires:
+ * - `provider` string state set elsewhere: "apple" | "ytm"
+ * - `notify()` defined
+ *
+ * Notes:
+ * - On iOS/Safari, opening a new window after an `await` can be blocked.
+ *   This implementation uses a named tab and opens it directly when possible.
+ * - YouTube Data API key should be restricted by HTTP referrers in Google Cloud Console.
+ */
+
+// Provide your YouTube Data API key here (or inject via build step).
+const YT_API_KEY = "PASTE_YOUR_YT_API_KEY"; // required for best results
+
+/**
+ * Build YouTube queries based on genre.
+ * - Tv/Movie/Kids: ONLY "Title Artist"
+ * - Others: include a few helpful variants, ending with plain "Title Artist"
+ */
+function buildYouTubeQueries({ title, artist, genre }) {
+  const base = `${title} ${artist}`.trim();
+  const isTvMovieKids = /tv|movie|kids/i.test(String(genre || ""));
+  if (isTvMovieKids) return [base];
+  return [`${base} lyrics`, `${base} audio`, base];
+}
+
+/**
+ * PlaybackManager handles:
+ * - Apple Music: deep link (iOS) or web search (others)
+ * - YouTube Music: uses YouTube Data API to find a music video id, then opens music.youtube.com/watch?v=...
+ */
 const PlaybackManager = (() => {
-  async function playSong({ title, artist }) {
+  const TAB_TARGET = "player-tab"; // reuse same external tab
+
+  async function playSong({ title, artist, genre }) {
     if (!title || !artist) return;
 
     if (provider === "ytm") {
-      notify("Searching YouTube Music...");
-      const videoId = await findYouTubeVideoId({ title, artist });
-      openYouTubeMusicByVideoId(videoId);
-      notify(`Opening "${title}" in YouTube Music...`);
+      await playYouTubeMusic({ title, artist, genre });
       return;
     }
 
-    // Default: Apple Music search
+    playAppleMusic({ title, artist });
+  }
+
+  function playAppleMusic({ title, artist }) {
     const query = encodeURIComponent(`${title} ${artist}`);
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
@@ -784,31 +817,95 @@ const PlaybackManager = (() => {
       ? `music://music.apple.com/search?term=${query}`
       : `https://music.apple.com/us/search?term=${query}`;
 
-    window.open(url, "_blank");
+    openInTab(url);
     notify(`Opening "${title}" in Apple Music...`);
+  }
+
+  async function playYouTubeMusic({ title, artist, genre }) {
+    // Open something immediately to reduce popup blocking on iOS.
+    // If the API succeeds, we navigate the same tab to the final watch URL.
+    const fallbackSearchUrl = `https://music.youtube.com/search?q=${encodeURIComponent(`${title} ${artist}`)}`;
+
+    // Best-effort immediate open (counts as user gesture)
+    const win = openInTab(fallbackSearchUrl);
+
+    notify(`Searching YouTube Music for "${title}"...`);
+
+    // Try multiple query variants
+    const queries = buildYouTubeQueries({ title, artist, genre });
+
+    let videoId = null;
+    for (let i = 0; i < queries.length; i++) {
+      // Bias toward "audio" if present in the query list
+      videoId = await findYouTubeVideoId(queries[i]);
+      if (videoId) break;
+    }
+
+    if (videoId) {
+      const url = `https://music.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+      navigateTab(win, url);
+      notify(`Opening "${title}" in YouTube Music...`);
+    } else {
+      // Keep the fallback search tab (already open)
+      notify("Could not find a direct match. Showing YouTube Music search results.");
+    }
+  }
+
+  function openInTab(url) {
+    const win = window.open(url, TAB_TARGET);
+    if (!win) {
+      alert("Please allow popups for this site to open the music player.");
+      return null;
+    }
+    try { win.focus(); } catch (_) {}
+    return win;
+  }
+
+  function navigateTab(win, url) {
+    // If we have a handle, navigate it. Otherwise try opening again.
+    try {
+      if (win && !win.closed) {
+        win.location.href = url;
+        win.focus();
+        return;
+      }
+    } catch (_) {}
+    openInTab(url);
+  }
+
+  async function findYouTubeVideoId(query) {
+    if (!YT_API_KEY) {
+      console.warn("No YT_API_KEY provided.");
+      return null;
+    }
+
+    const url = new URL("https://www.googleapis.com/youtube/v3/search");
+    url.searchParams.set("part", "snippet");
+    url.searchParams.set("q", query);
+    url.searchParams.set("type", "video");
+    url.searchParams.set("videoCategoryId", "10"); // Music
+    url.searchParams.set("maxResults", "1");
+    url.searchParams.set("key", YT_API_KEY);
+
+    try {
+      const resp = await fetch(url.toString());
+      if (!resp.ok) {
+        // Helpful debug info in console; keep UI quiet
+        const t = await resp.text().catch(() => "");
+        console.warn("YouTube API non-OK:", resp.status, t);
+        return null;
+      }
+      const data = await resp.json();
+      const id = data?.items?.[0]?.id?.videoId || null;
+      return id;
+    } catch (err) {
+      console.error("YouTube API Error:", err);
+      return null;
+    }
   }
 
   return { playSong };
 })();
-
-async function findYouTubeVideoId({ title, artist }) {
-  const q = encodeURIComponent(`${title} ${artist}`);
-  const url =
-    "https://www.googleapis.com/youtube/v3/search" +
-    `?part=snippet&type=video&maxResults=1&q=${q}&key=${encodeURIComponent(YT_API_KEY)}`;
-
-  const res = await fetch(url);
-  if (!res.ok) {
-    const t = await res.text().catch(() => "");
-    throw new Error(`YouTube API error ${res.status}: ${t || res.statusText}`);
-  }
-
-  const data = await res.json();
-  const item = data?.items?.[0];
-  const id = item?.id?.videoId;
-  if (!id) throw new Error("No YouTube results.");
-  return id;
-}
 
 /* ---------- Filtering helpers ---------- */
 
@@ -1658,3 +1755,4 @@ refreshArchiveList();
 renderRecent();
 
 renderLastImportMeta();
+
