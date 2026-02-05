@@ -776,8 +776,6 @@ songForm?.addEventListener("submit", async (e) => {
  */
 
 // Provide your YouTube Data API key here (or inject via build step).
-const YT_API_KEY = "PASTE_YOUR_YT_API_KEY"; // required for best results
-
 /**
  * Build YouTube queries based on genre.
  * - Tv/Movie/Kids: ONLY "Title Artist"
@@ -1755,4 +1753,5 @@ refreshArchiveList();
 renderRecent();
 
 renderLastImportMeta();
+
 
