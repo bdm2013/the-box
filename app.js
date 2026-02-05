@@ -762,7 +762,7 @@ songForm?.addEventListener("submit", async (e) => {
 });
 
 /* ---------- Playback Integration (Apple Music + YouTube Music) ---------- */
-const YT_API_KEY = "AIzaSyBnIwX-F4YoxXW4gatIwvJD-NF23XcdwaI";
+const YT_API_KEY = "AIzaSyDTKFXhB4ddJJdafUjMqVrNqjTKBd2T_tU";
 /**
  * Build YouTube queries based on genre.
  * - Tv/Movie/Kids: ONLY "Title Artist"
@@ -1736,6 +1736,7 @@ refreshArchiveList();
 renderRecent();
 
 renderLastImportMeta();
+
 
 
 
