@@ -772,9 +772,18 @@ const YT_API_KEY = "AIzaSyDTKFXhB4ddJJdafUjMqVrNqjTKBd2T_tU";
 function buildYouTubeQueries({ title, artist, genre }) {
   const base = `${title} ${artist}`.trim();
   const isTvMovieKids = /tv|movie|kids/i.test(String(genre || ""));
-  if (isTvMovieKids) return [base];
-  return [`${base} lyrics`, `${base} audio`, base];
+  if (isTvMovieKids) {
+    // Plain search only for this genre
+    return [base];
+  }
+  // Default behavior for other genres
+  return [
+    `${base} lyrics`,
+    `${base} audio`,
+    base
+  ];
 }
+
 
 const PlaybackManager = (() => {
   const TAB_TARGET = "player-tab"; // reuse same external tab
@@ -1736,6 +1745,7 @@ refreshArchiveList();
 renderRecent();
 
 renderLastImportMeta();
+
 
 
 
