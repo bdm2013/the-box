@@ -23,7 +23,6 @@ const ARCHIVE_KEY = "songPicker.archive";
 const RECENT_KEY = "songPicker.recent";
 const LAST_IMPORT_META_KEY = "songPicker.lastImportMeta";
 const PROVIDER_KEY = "songPicker.provider";
-const YT_API_KEY = "AIzaSyDE4RjoYFYADsg3YVkJg6AUniegOtM7f3c";
 const CSV_DELIM = "@";
 const RECENT_MAX = 4;
 
@@ -763,7 +762,12 @@ songForm?.addEventListener("submit", async (e) => {
 });
 
 /* ---------- Playback Integration (Apple Music + YouTube Music) ---------- */
-
+const YT_API_KEY = "AIzaSyDE4RjoYFYADsg3YVkJg6AUniegOtM7f3c";
+/**
+ * Build YouTube queries based on genre.
+ * - Tv/Movie/Kids: ONLY "Title Artist"
+ * - Others: include variants, ending with plain "Title Artist"
+ */
  Build YouTube queries based on genre.
  - Tv/Movie/Kids: ONLY "Title Artist"
  - Others: include a few helpful variants, ending with plain "Title Artist"
@@ -1735,6 +1739,7 @@ refreshArchiveList();
 renderRecent();
 
 renderLastImportMeta();
+
 
 
 
