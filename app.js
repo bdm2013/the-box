@@ -774,9 +774,6 @@ songForm?.addEventListener("submit", async (e) => {
  *   This implementation uses a named tab and opens it directly when possible.
  * - YouTube Data API key should be restricted by HTTP referrers in Google Cloud Console.
  */
-
-// Provide your YouTube Data API key here (or inject via build step).
-/**
  * Build YouTube queries based on genre.
  * - Tv/Movie/Kids: ONLY "Title Artist"
  * - Others: include a few helpful variants, ending with plain "Title Artist"
@@ -1753,5 +1750,6 @@ refreshArchiveList();
 renderRecent();
 
 renderLastImportMeta();
+
 
 
