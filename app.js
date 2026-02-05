@@ -768,10 +768,7 @@ const YT_API_KEY = "AIzaSyDE4RjoYFYADsg3YVkJg6AUniegOtM7f3c";
  * - Tv/Movie/Kids: ONLY "Title Artist"
  * - Others: include variants, ending with plain "Title Artist"
  */
- Build YouTube queries based on genre.
- - Tv/Movie/Kids: ONLY "Title Artist"
- - Others: include a few helpful variants, ending with plain "Title Artist"
- 
+
 function buildYouTubeQueries({ title, artist, genre }) {
   const base = `${title} ${artist}`.trim();
   const isTvMovieKids = /tv|movie|kids/i.test(String(genre || ""));
@@ -1739,6 +1736,7 @@ refreshArchiveList();
 renderRecent();
 
 renderLastImportMeta();
+
 
 
 
