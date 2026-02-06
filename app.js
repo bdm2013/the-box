@@ -819,6 +819,8 @@ const PlaybackManager = (() => {
     const url = `https://music.youtube.com/search?q=${encodeURIComponent(`${title} ${artist}`)}`;
     openInTab(url);
     notify(`Opening "${title}" in YouTube Music...`);
+     if (isIphoneLayout()) window.location.href = url;
+else openInTab(url);
   }
 
   async function playYouTubeMusicViaApi({ title, artist, genre }) {
@@ -847,7 +849,7 @@ const PlaybackManager = (() => {
 
   function openInTab(url) {
     // Use _blank on iPhone layout to behave more like Apple Music (new tab handoff feels more consistent)
-    const target = isIphoneLayout() ? "_blank" : TAB_TARGET;
+    const target = isIphoneLayout() ? "_self" : TAB_TARGET;
 
     const win = window.open(url, target);
     if (!win) {
@@ -1748,6 +1750,7 @@ refreshArchiveList();
 renderRecent();
 
 renderLastImportMeta();
+
 
 
 
