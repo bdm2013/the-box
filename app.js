@@ -762,28 +762,25 @@ songForm?.addEventListener("submit", async (e) => {
 });
 
 /* ---------- Playback Integration (Apple Music + YouTube Music) ---------- */
+
 const YT_API_KEY = "AIzaSyDTKFXhB4ddJJdafUjMqVrNqjTKBd2T_tU";
+
+// iphone.css is loaded for max-width: 768px, so use the same condition in JS
+function isIphoneLayout() {
+  return window.matchMedia("(max-width: 768px)").matches;
+}
+
 /**
  * Build YouTube queries based on genre.
  * - Tv/Movie/Kids: ONLY "Title Artist"
  * - Others: include variants, ending with plain "Title Artist"
  */
-
 function buildYouTubeQueries({ title, artist, genre }) {
   const base = `${title} ${artist}`.trim();
   const isTvMovieKids = /tv|movie|kids/i.test(String(genre || ""));
-  if (isTvMovieKids) {
-    // Plain search only for this genre
-    return [base];
-  }
-  // Default behavior for other genres
-  return [
-    `${base} lyrics`,
-    `${base} audio`,
-    base
-  ];
+  if (isTvMovieKids) return [base];
+  return [`${base} lyrics`, `${base} audio`, base];
 }
-
 
 const PlaybackManager = (() => {
   const TAB_TARGET = "player-tab"; // reuse same external tab
@@ -792,7 +789,14 @@ const PlaybackManager = (() => {
     if (!title || !artist) return;
 
     if (provider === "ytm") {
-      await playYouTubeMusic({ title, artist, genre });
+      // iPhone layout: match Apple Music behavior (open search immediately; no API call)
+      if (isIphoneLayout()) {
+        playYouTubeMusicSearch({ title, artist });
+        return;
+      }
+
+      // Desktop layout: use API to find best match, then open direct watch URL
+      await playYouTubeMusicViaApi({ title, artist, genre });
       return;
     }
 
@@ -811,22 +815,23 @@ const PlaybackManager = (() => {
     notify(`Opening "${title}" in Apple Music...`);
   }
 
-  async function playYouTubeMusic({ title, artist, genre }) {
-    // Open something immediately to reduce popup blocking on iOS.
-    // If the API succeeds, we navigate the same tab to the final watch URL.
-    const fallbackSearchUrl = `https://music.youtube.com/search?q=${encodeURIComponent(`${title} ${artist}`)}`;
+  function playYouTubeMusicSearch({ title, artist }) {
+    const url = `https://music.youtube.com/search?q=${encodeURIComponent(`${title} ${artist}`)}`;
+    openInTab(url);
+    notify(`Opening "${title}" in YouTube Music...`);
+  }
 
-    // Best-effort immediate open (counts as user gesture)
+  async function playYouTubeMusicViaApi({ title, artist, genre }) {
+    // Open something immediately to reduce popup blocking (still best practice)
+    const fallbackSearchUrl = `https://music.youtube.com/search?q=${encodeURIComponent(`${title} ${artist}`)}`;
     const win = openInTab(fallbackSearchUrl);
 
     notify(`Searching YouTube Music for "${title}"...`);
 
-    // Try multiple query variants
     const queries = buildYouTubeQueries({ title, artist, genre });
 
     let videoId = null;
     for (let i = 0; i < queries.length; i++) {
-      // Bias toward "audio" if present in the query list
       videoId = await findYouTubeVideoId(queries[i]);
       if (videoId) break;
     }
@@ -836,13 +841,15 @@ const PlaybackManager = (() => {
       navigateTab(win, url);
       notify(`Opening "${title}" in YouTube Music...`);
     } else {
-      // Keep the fallback search tab (already open)
       notify("Could not find a direct match. Showing YouTube Music search results.");
     }
   }
 
   function openInTab(url) {
-    const win = window.open(url, TAB_TARGET);
+    // Use _blank on iPhone layout to behave more like Apple Music (new tab handoff feels more consistent)
+    const target = isIphoneLayout() ? "_blank" : TAB_TARGET;
+
+    const win = window.open(url, target);
     if (!win) {
       alert("Please allow popups for this site to open the music player.");
       return null;
@@ -852,7 +859,6 @@ const PlaybackManager = (() => {
   }
 
   function navigateTab(win, url) {
-    // If we have a handle, navigate it. Otherwise try opening again.
     try {
       if (win && !win.closed) {
         win.location.href = url;
@@ -880,14 +886,12 @@ const PlaybackManager = (() => {
     try {
       const resp = await fetch(url.toString());
       if (!resp.ok) {
-        // Helpful debug info in console; keep UI quiet
         const t = await resp.text().catch(() => "");
         console.warn("YouTube API non-OK:", resp.status, t);
         return null;
       }
       const data = await resp.json();
-      const id = data?.items?.[0]?.id?.videoId || null;
-      return id;
+      return data?.items?.[0]?.id?.videoId || null;
     } catch (err) {
       console.error("YouTube API Error:", err);
       return null;
@@ -896,7 +900,6 @@ const PlaybackManager = (() => {
 
   return { playSong };
 })();
-
 /* ---------- Filtering helpers ---------- */
 
 function injectFilterControls({ containerSelector, scope, onChange }) {
@@ -1745,6 +1748,7 @@ refreshArchiveList();
 renderRecent();
 
 renderLastImportMeta();
+
 
 
 
