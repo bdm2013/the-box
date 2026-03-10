@@ -33,7 +33,7 @@ const RECENT_MAX = 4;
 const FIREBASE_ENABLED = true;
 
 const firebaseConfig = {
- apiKey: "AIzaSyBnIwX-F4YoxXW4gatIwvJD-NF23XcdwaI",
+ apiKey: "AIzaSyCk5xfYIT_-Ps4sFpKOIMiUUQjhD5WYtB8",
   authDomain: "sturdy-device-485320-s2.firebaseapp.com",
   projectId: "sturdy-device-485320-s2",
   storageBucket: "sturdy-device-485320-s2.firebasestorage.app",
@@ -1750,6 +1750,7 @@ refreshArchiveList();
 renderRecent();
 
 renderLastImportMeta();
+
 
 
 
