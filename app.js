@@ -116,23 +116,6 @@ function promptForPasscode(resolve) {
     });
 }
 
-/* ---------- Firebase init ---------- */
-
-let fbApp = null;
-let fbDb = null;
-
-function initFirebase() {
-  if (!FIREBASE_ENABLED) return false;
-  try {
-    fbApp = initializeApp(firebaseConfig);
-    fbDb = getFirestore(fbApp);
-    return true;
-  } catch (e) {
-    console.warn("Firebase init failed:", e);
-    return false;
-  }
-}
-
 function getFirebaseDocRef() {
   if (!fbDb) return null;
   const parts = FIREBASE_DOC_PATH.split("/");
@@ -1815,6 +1798,7 @@ refreshArchiveList();
 renderRecent();
 
 renderLastImportMeta();
+
 
 
 
