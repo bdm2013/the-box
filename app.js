@@ -47,8 +47,13 @@ const FIREBASE_DOC_PATH = "songs/state";
 
 /* Firebase SDK imports */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-// Add Auth imports
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";// Add Auth imports
 import { 
   getAuth, 
   signInWithEmailAndPassword, 
@@ -587,11 +592,7 @@ firebasePushBtn?.addEventListener("click", async () => {
 
     const csv = allSongsToCsv(songs, archive, { withBom: false });
 
-    await setDoc(ref, {
-      csv,
-      updatedAt: serverTimestamp(),
-      version: Date.now()
-    }, { merge: true });
+await setDoc(ref, { csv, updatedAt: serverTimestamp(), version: Date.now() }, { merge: true });
 
     notify("Firebase Push complete.");
   } catch (err) {
