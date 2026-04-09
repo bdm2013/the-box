@@ -54,18 +54,29 @@ import {
   setDoc,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";// Add Auth imports
-import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { 
+  getAuth, 
+  signInWithEmailAndPassword, 
+  onAuthStateChanged 
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
-/* ---------- Firebase init ---------- */
+/* ---------- Configuration ---------- */
+const DUMMY_EMAIL = "app@music.com"; // Must match what you put in Firebase Console
 
 let fbApp = null;
 let fbDb = null;
+let fbAuth = null;
 
-function initFirebase() {
+async function initFirebase() {
   if (!FIREBASE_ENABLED) return false;
   try {
     fbApp = initializeApp(firebaseConfig);
     fbDb = getFirestore(fbApp);
+    fbAuth = getAuth(fbApp);
+
+    // Wait for auth check to complete
+    await handleAuth();
+    
     return true;
   } catch (e) {
     console.warn("Firebase init failed:", e);
@@ -73,12 +84,49 @@ function initFirebase() {
   }
 }
 
+function handleAuth() {
+  return new Promise((resolve) => {
+    // Check if user is ALREADY signed in (session persistence)
+    const unsubscribe = onAuthStateChanged(fbAuth, (user) => {
+      unsubscribe(); // Run this check once
+      
+      if (user) {
+        console.log("User already authenticated via persistence.");
+        resolve(user);
+      } else {
+        // User is not signed in, ask for passcode
+        promptForPasscode(resolve);
+      }
+    });
+  });
+}
+
+function promptForPasscode(resolve) {
+  const passcode = prompt("Please enter the sync passcode:");
+  
+  if (!passcode) {
+    alert("Passcode required for sync.");
+    return; // Stop here
+  }
+
+  // Attempt to sign in with the dummy email + entered passcode
+  signInWithEmailAndPassword(fbAuth, DUMMY_EMAIL, passcode)
+    .then((userCredential) => {
+      console.log("Passcode correct. Signed in.");
+      resolve(userCredential.user);
+    })
+    .catch((error) => {
+      console.error("Login failed", error);
+      alert("Invalid Passcode. Please refresh and try again.");
+    });
+}
+
 function getFirebaseDocRef() {
   if (!fbDb) return null;
   const parts = FIREBASE_DOC_PATH.split("/");
   if (parts.length !== 2) throw new Error("FIREBASE_DOC_PATH must be 'collection/docId'");
   return doc(fbDb, parts[0], parts[1]);
- 
+}
 
 /* ---------- State ---------- */
 
