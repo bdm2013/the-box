@@ -74,14 +74,23 @@
           </button>
 
           <!-- Firebase manual actions (separate) -->
-          <button type="button" id="firebase-pull-btn" class="circle-icon circle-green" title="Firebase Pull" aria-label="Firebase Pull">
-            <span class="icon-label" aria-hidden="true">☁︎⇩</span>
-          </button>
+         <div class="fb-actions">
+  <div class="fb-block">
+    <div class="fb-label">Before</div>
+    <button id="firebase-pull-btn" type="button" class="fb-btn fb-pull" aria-label="Firebase Pull (Before)">
+      <span class="fb-num">1</span>
+      <span class="fb-text">Pull</span>
+    </button>
+  </div>
 
-          <button type="button" id="firebase-push-btn" class="circle-icon circle-green" title="Firebase Push" aria-label="Firebase Push">
-            <span class="icon-label" aria-hidden="true">☁︎⇧</span>
-          </button>
-        </div>
+  <div class="fb-block">
+    <div class="fb-label">After</div>
+    <button id="firebase-push-btn" type="button" class="fb-btn fb-push" aria-label="Firebase Push (After)">
+      <span class="fb-num">2</span>
+      <span class="fb-text">Push</span>
+    </button>
+  </div>
+</div>
 
         <div class="right-actions">
           <button type="button" id="add-song-nav" class="circle-icon circle-green" title="Add Song" aria-label="Add Song">
