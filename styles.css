@@ -281,6 +281,94 @@ input:focus, select:focus { outline: 2px solid var(--accent2); }
   z-index: 10;
 }
 
+/* REPLACE these existing parts in styles.css to style the Firebase Pull/Push as numbered circles with labels */
+
+/* 1) Add Firebase actions layout and numeric “icons” */
+.fb-actions {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.fb-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.fb-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Base look for the Firebase buttons (use on your Pull/Push buttons) */
+.fb-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #334155;
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: var(--shadow);
+}
+
+.fb-btn:hover {
+  border-color: #475569;
+  background: #0e172a;
+}
+
+/* The numeric badge that replaces the icon */
+.fb-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--icon-green-text);
+  background: var(--icon-green-bg);
+  border: 1px solid #0e3c21;
+  border-radius: 6px;
+}
+
+/* Optional text next to the number */
+.fb-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+/* 2) If your Firebase buttons currently use circle-icon styles, override them to match the new look */
+#firebase-pull-btn.circle-icon,
+#firebase-push-btn.circle-icon {
+  width: auto;
+  height: auto;
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+}
+
+/* 3) Responsive tweak for very small screens */
+@media (max-width: 420px) {
+  .fb-actions {
+    gap: 12px;
+  }
+  .fb-num {
+    width: 26px;
+    height: 26px;
+    font-size: 15px;
+  }
+  .fb-text {
+    font-size: 0.9rem;
+  }
+}
+
 /* 11. Circle icons: simple green circles with symbol — 50% larger */
 .circle-icon {
   width: 66px;   /* was 44px */
