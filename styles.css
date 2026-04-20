@@ -340,7 +340,7 @@ input:focus, select:focus { outline: 2px solid var(--accent2); }
 .bind-btn.bind-bound { border-color: var(--bind-green-border); background: var(--bind-green-bg); color: var(--bind-green-text); }
 .bind-btn.bind-not-bound { border-color: var(--bind-orange-border); background: var(--bind-orange-bg); color: var(--bind-orange-text); }
 
-/* 14. Firebase Pull/Push as green circles with numeric badges and labels underneath */
+/* 14. Firebase Pull/Push: green circles with numeric badges and labels underneath */
 
 /* Container holding the two circles */
 .fb-actions {
@@ -356,17 +356,19 @@ input:focus, select:focus { outline: 2px solid var(--accent2); }
   align-items: center;
 }
 
-/* The circle button itself: reuse circle-icon + circle-green; place number centered */
-.fb-btn-circle {
-  /* Helper class if you prefer, but you can also just use circle-icon circle-green directly */
-}
+/* Use your existing circle styles for the buttons:
+   <button class="circle-icon circle-green fb-pull"><span class="fb-num">1</span></button>
+   <div class="fb-label">Before</div> (underneath)
+   <button class="circle-icon circle-green fb-push"><span class="fb-num">2</span></button>
+   <div class="fb-label">After</div>
+*/
 
+/* Number inside the circle */
 .fb-num {
-  /* Number inside the circle; sized to look like an icon label */
   font-size: 30px;
   font-weight: 800;
   line-height: 1;
-  color: #fff; /* readable on green */
+  color: #fff;
   user-select: none;
 }
 
@@ -377,9 +379,11 @@ input:focus, select:focus { outline: 2px solid var(--accent2); }
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  text-align: center;
+  min-width: 66px; /* align with circle width */
 }
 
-/* Hover lift for circles used as Firebase controls (optional) */
+/* Optional: subtle hover lift for Firebase circles */
 .fb-block .circle-icon:hover {
   transform: translateY(-2px);
 }
