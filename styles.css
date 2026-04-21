@@ -342,29 +342,49 @@ input:focus, select:focus { outline: 2px solid var(--accent2); }
 
 /* 14. Firebase Pull/Push: green circles with numeric badges and labels underneath */
 
-/* Container holding the two circles */
+/* Container that holds the two columns */
 .fb-actions {
   display: flex;
   gap: 20px;
   align-items: flex-start;
 }
 
-/* Each circle+label column */
+/* Column wrapper for a circle + label */
 .fb-block {
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-/* Use your existing circle styles for the buttons:
-   <button class="circle-icon circle-green fb-pull"><span class="fb-num">1</span></button>
-   <div class="fb-label">Before</div> (underneath)
-   <button class="circle-icon circle-green fb-push"><span class="fb-num">2</span></button>
-   <div class="fb-label">After</div>
-*/
+/* Make the pull/push buttons match existing green circles */
+#firebase-pull-btn,
+#firebase-push-btn {
+  /* Ensure they inherit circle look; add these classes in HTML if not already:
+     class="circle-icon circle-green" */
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--icon-green-bg);
+  color: #fff;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: transform 0.08s ease, filter 0.2s ease;
+}
 
-/* Number inside the circle */
-.fb-num {
+/* Hover motion consistent with other circles */
+#firebase-pull-btn:hover,
+#firebase-push-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+/* Remove any icon/logo inside and keep ONLY the number (use a span.fb-num in HTML) */
+#firebase-pull-btn .fb-num,
+#firebase-push-btn .fb-num {
   font-size: 30px;
   font-weight: 800;
   line-height: 1;
@@ -372,7 +392,15 @@ input:focus, select:focus { outline: 2px solid var(--accent2); }
   user-select: none;
 }
 
-/* Label below each circle */
+/* Optional: hide any leftover text/icon nodes inside these buttons */
+#firebase-pull-btn .fb-text,
+#firebase-push-btn .fb-text,
+#firebase-pull-btn .icon,
+#firebase-push-btn .icon {
+  display: none !important;
+}
+
+/* Label under each circle */
 .fb-label {
   margin-top: 8px;
   font-size: 0.9rem;
@@ -380,17 +408,46 @@ input:focus, select:focus { outline: 2px solid var(--accent2); }
   text-transform: uppercase;
   letter-spacing: 0.03em;
   text-align: center;
-  min-width: 66px; /* align with circle width */
-}
-
-/* Optional: subtle hover lift for Firebase circles */
-.fb-block .circle-icon:hover {
-  transform: translateY(-2px);
+  min-width: 66px;
 }
 
 /* Small screen tweaks */
 @media (max-width: 420px) {
   .fb-actions { gap: 14px; }
   .fb-label { font-size: 0.85rem; }
-  .fb-num { font-size: 28px; }
+  #firebase-pull-btn .fb-num,
+  #firebase-push-btn .fb-num { font-size: 28px; }
+}
+
+/* --- Bottom bar: move Add Song button to the right side --- */
+
+/* If your bottom bar already has .left-actions and .right-actions,
+   this places Add Song on the right by default. */
+.bottom-actions {
+  display: flex;
+  justify-content: space-between; /* left group on left, right group on right */
+  align-items: center;
+  gap: 8px;
+}
+
+/* Make sure the right group grows to host Add Song on the far right */
+.bottom-actions .right-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 16px;
+}
+
+/* If the Add Song button is not inside .right-actions, force it right: */
+#add-song-nav {
+  margin-left: auto; /* pushes it to the far right within .bottom-actions */
+}
+
+/* Optional: keep a consistent circle look if Add Song is also a circle */
+#add-song-nav.circle-icon {
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
