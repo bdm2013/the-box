@@ -414,10 +414,10 @@ input:focus, select:focus { outline: 2px solid var(--accent2); }
 }
 /* --- Bottom bar: move Add Song button to the right side --- */
 
-/* Ensure proper spacing between left and right groups */
-.bottom-actions {
+/* Remove any conflicting bottom-actions rules and use this one */
+.bottom-actions.fixed-bottom {
   display: flex;
-  justify-content: space-between; /* left group on left, right group on right */
+  justify-content: space-between;
   align-items: center;
   gap: 8px;
 }
@@ -427,19 +427,16 @@ input:focus, select:focus { outline: 2px solid var(--accent2); }
   display: flex;
   gap: 16px;
   align-items: center;
+  flex: 0 0 auto;
 }
 
 /* Right actions group - pushes Add Song to far right */
 .bottom-actions .right-actions {
-  margin-left: auto;
   display: flex;
   gap: 16px;
   align-items: center;
-}
-
-/* Ensure Add Song button stays on the right */
-#add-song-nav {
-  /* No margin-left needed since it's in .right-actions */
+  margin-left: auto; /* Push to the right */
+  flex: 0 0 auto;
 }
 
 /* Keep consistent circle look for Add Song button */
@@ -451,4 +448,3 @@ input:focus, select:focus { outline: 2px solid var(--accent2); }
   align-items: center;
   justify-content: center;
 }
-
