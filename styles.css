@@ -261,19 +261,19 @@ input:focus, select:focus { outline: 2px solid var(--accent2); }
 .bottom-actions {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start; /* Changed from center to flex-start for label alignment */
+  align-items: center; /* Center align the button rows */
   gap: 8px;
   margin-top: 14px;
 }
 .bottom-actions .left-actions { 
   display: flex; 
   gap: 16px; 
-  align-items: flex-start; /* Changed from default to flex-start */
+  align-items: center; /* Center align buttons in left group */
 }
 .bottom-actions .right-actions { 
   display: flex; 
   gap: 16px; 
-  align-items: flex-start; /* Changed from default to flex-start */
+  align-items: center; /* Center align buttons in right group */
 }
 
 /* 11. Circle icons: simple green circles with symbol — 50% larger */
@@ -343,13 +343,13 @@ input:focus, select:focus { outline: 2px solid var(--accent2); }
   gap: 20px;
   align-items: flex-start;
 }
-
 /* Column wrapper for a circle + label */
 .fb-block {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
+  margin-top: 0; /* Ensure no extra top margin */
 }
 
 /* Make the pull/push buttons match existing green circles */
@@ -404,6 +404,7 @@ input:focus, select:focus { outline: 2px solid var(--accent2); }
   text-align: center;
   min-width: 66px;
   line-height: 1.2;
+  margin-top: 2px; /* Small spacing between button and label */
 }
 
 /* Small screen tweaks */
