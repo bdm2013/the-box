@@ -421,8 +421,7 @@ input:focus, select:focus { outline: 2px solid var(--accent2); }
 
 /* --- Bottom bar: move Add Song button to the right side --- */
 
-/* If your bottom bar already has .left-actions and .right-actions,
-   this places Add Song on the right by default. */
+/* Ensure proper spacing between left and right groups */
 .bottom-actions {
   display: flex;
   justify-content: space-between; /* left group on left, right group on right */
@@ -430,19 +429,27 @@ input:focus, select:focus { outline: 2px solid var(--accent2); }
   gap: 8px;
 }
 
-/* Make sure the right group grows to host Add Song on the far right */
+/* Left actions group */
+.bottom-actions .left-actions {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+/* Right actions group - pushes Add Song to far right */
 .bottom-actions .right-actions {
   margin-left: auto;
   display: flex;
   gap: 16px;
+  align-items: center;
 }
 
-/* If the Add Song button is not inside .right-actions, force it right: */
+/* Ensure Add Song button stays on the right */
 #add-song-nav {
-  margin-left: auto; /* pushes it to the far right within .bottom-actions */
+  /* No margin-left needed since it's in .right-actions */
 }
 
-/* Optional: keep a consistent circle look if Add Song is also a circle */
+/* Keep consistent circle look for Add Song button */
 #add-song-nav.circle-icon {
   width: 66px;
   height: 66px;
@@ -451,3 +458,4 @@ input:focus, select:focus { outline: 2px solid var(--accent2); }
   align-items: center;
   justify-content: center;
 }
+
