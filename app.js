@@ -1524,12 +1524,10 @@ function parseCsvWithReport(text, existingSongs = []) {
   let duplicatesInCsv = 0;
   let duplicatesVsCurrent = 0;
 
-  const seenKeys = new Set();
+ const seenKeys = new Set();
   const keyOf = (s) => [
     String(s.artist || "").trim().toLowerCase(),
-    String(s.title || "").trim().toLowerCase(),
-    s.year ?? "",
-    String(s.genre || "").trim().toLowerCase()
+    String(s.title || "").trim().toLowerCase()
   ].join("|");
   const existingSet = new Set(existingSongs.map(keyOf));
 
@@ -1567,8 +1565,7 @@ function parseCsvWithReport(text, existingSongs = []) {
       continue;
     }
 
-    const k = [artist.toLowerCase(), title.toLowerCase(), year ?? "", genre.toLowerCase()].join("|");
-
+    const k = [artist.toLowerCase(), title.toLowerCase()].join("|");
     if (seenKeys.has(k)) {
       duplicatesInCsv++;
       continue;
@@ -1662,7 +1659,7 @@ function parseCsvWithStatus(text) {
       continue;
     }
 
-    const k = [status.toLowerCase(), artist.toLowerCase(), title.toLowerCase(), (year ?? ""), genre.toLowerCase()].join("|");
+ const k = [status.toLowerCase(), artist.toLowerCase(), title.toLowerCase()].join("|");
     if (seenKeys.has(k)) {
       duplicatesInCsv++;
       continue;
@@ -1683,9 +1680,7 @@ function mergeImportedSongs(imported) {
   const keyOf = function(s) {
     return [
       s.artist.trim().toLowerCase(),
-      s.title.trim().toLowerCase(),
-      (s.year ?? ""),
-      s.genre.trim().toLowerCase()
+      s.title.trim().toLowerCase()
     ].join("|");
   };
 
