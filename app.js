@@ -352,8 +352,35 @@ async function pickAndArchiveForGenre(genre) {
   const song = randomItem(pool);
   renderResultWithDelay(song, 500);
 
- try { await PlaybackManager.playSong(song); } catch (err) { console.warn("Playback error", err); notify(err?.message || "Playback failed."); }
+  // Play sound effect for TV/Movie/Kids genre
+  if (song.genre === "Tv/Movie/Kids") {
+    playTvMovieKidsSound();
+  }
+/* ---------- Sound Effects ---------- */
+
+let tvMovieKidsAudio = null;
+
+function playTvMovieKidsSound() {
+  try {
+    // Initialize audio element once
+    if (!tvMovieKidsAudio) {
+      tvMovieKidsAudio = new Audio('the-box/tvmoviekids.mp3'); // Replace with your sound file path
+      tvMovieKidsAudio.volume = 0.5; // Adjust volume (0.0 to 1.0)
+    }
+    
+    // Reset and play
+    tvMovieKidsAudio.currentTime = 0;
+    tvMovieKidsAudio.play().catch(err => {
+      console.warn("Sound playback failed:", err);
+    });
+    
+  } catch (err) {
+    console.warn("Sound effect failed:", err);
+  }
+}
    
+  try { await PlaybackManager.playSong(song); } catch (err) { console.warn("Playback error", err); notify(err?.message || "Playback failed."); }
+  
   pushRecent(song);
   renderRecent();
 
