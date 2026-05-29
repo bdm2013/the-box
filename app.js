@@ -364,7 +364,7 @@ function playTvMovieKidsSound() {
   try {
     // Initialize audio element once
     if (!tvMovieKidsAudio) {
-      tvMovieKidsAudio = new Audio(tvmoviekids.mp3); 
+      tvMovieKidsAudio = new Audio('tvmoviekids.mp3'); 
       tvMovieKidsAudio.volume = 0.5; // Adjust volume (0.0 to 1.0)
     }
     
