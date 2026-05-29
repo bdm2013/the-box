@@ -364,7 +364,7 @@ function playTvMovieKidsSound() {
   try {
     // Initialize audio element once
     if (!tvMovieKidsAudio) {
-      tvMovieKidsAudio = new Audio('the-box/tvmoviekids.mp3'); // Replace with your sound file path
+      tvMovieKidsAudio = new Audio(https://github.com/bdm2013/the-box/raw/refs/heads/main/tvmoviekids.mp3); 
       tvMovieKidsAudio.volume = 0.5; // Adjust volume (0.0 to 1.0)
     }
     
