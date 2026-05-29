@@ -137,6 +137,7 @@ let recent = loadRecent();
 let isBulkOperationInProgress = false;
 let importMode = "merge"; 
 let provider = loadProvider(); // "apple" | "ytm"
+let tvMovieKidsAudio = null;
 
 function loadProvider() {
   const v = localStorage.getItem(PROVIDER_KEY);
@@ -357,8 +358,6 @@ async function pickAndArchiveForGenre(genre) {
     playTvMovieKidsSound();
   }
 /* ---------- Sound Effects ---------- */
-
-let tvMovieKidsAudio = null;
 
 function playTvMovieKidsSound() {
   try {
